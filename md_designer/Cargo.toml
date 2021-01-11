@@ -4,11 +4,13 @@ version = "0.1.0"
 authors = ["zeroclock <zeroclock@icloud.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = []
+excel = ["xlsxwriter"]
 
 [dependencies]
 pulldown-cmark = "0.8.0"
 clap = "2.33.3"
 anyhow = "1.0.32"
 regex = "1.4.3"
-xlsxwriter = "0.3.2"
+xlsxwriter = { version = "0.3.2", optional = true }

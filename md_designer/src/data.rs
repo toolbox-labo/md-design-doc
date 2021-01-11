@@ -1,13 +1,15 @@
 use anyhow::{anyhow, Result};
-use pulldown_cmark::{html, Event, Options, Parser, Tag};
+use pulldown_cmark::{Event, Options, Parser, Tag};
 use regex::Regex;
+
+#[cfg(feature="excel")]
 use xlsxwriter::*;
 
 enum State {
     Nothing,
     Heading(u32),
     List,
-    Check,
+    //Check,
 }
 
 enum List {
@@ -160,11 +162,12 @@ impl Data {
         })
     }
 
+    #[cfg(feature="excel")]
     pub fn export_excel(&self) -> Result<()> {
         let workbook = Workbook::new("test.xlsx");
         self.sheets.iter().for_each(|sheet| {
             let mut s = workbook.add_worksheet(sheet.sheet_name.as_deref()).unwrap();
-            let mut wrap_format = workbook.add_format().set_text_wrap();
+            let wrap_format = workbook.add_format().set_text_wrap();
             // header
             s.merge_range(0, 0, 1, 0, "試験項番", None).unwrap();
             s.merge_range(0, 1, 0, 7, "試験バリエーション", None)

@@ -1,10 +1,9 @@
 use anyhow::Result;
-use pulldown_cmark::{html, Options, Parser};
 
 use crate::data::Data;
 
 pub struct App {
-    data: Data,
+    pub data: Data,
 }
 
 impl App {
@@ -14,6 +13,7 @@ impl App {
         })
     }
 
+    #[cfg(feature="excel")]
     pub fn export_excel(&self) -> Result<()> {
         self.data.export_excel()?;
         Ok(())
