@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use pulldown_cmark::{html, Event, Options, Parser, Tag};
 use regex::Regex;
+use xlsxwriter::*;
 
 enum State {
     Nothing,
@@ -28,7 +29,7 @@ impl Default for Data {
 }
 
 impl Data {
-    pub fn marshal(input: &str) -> Result<(Self)> {
+    pub fn marshal(input: &str) -> Result<Self> {
         // trim first empty lines
         let input = input.trim_start();
 
@@ -73,9 +74,10 @@ impl Data {
                         // start a new row
                         sheet.rows.push(row.clone());
                         row = Row::default();
+                        last_is_list = false;
                     }
                     match tag {
-                        Tag::Heading(num) => { state = State::Heading(num) },
+                        Tag::Heading(num) => state = State::Heading(num),
                         Tag::List(_) => state = State::List,
                         _ => {}
                     }
@@ -84,109 +86,55 @@ impl Data {
                     if soft_break {
                         match current_list {
                             List::Description => {
-                                row.description = Some(format!(
-                                    "{}\n{}",
-                                    row.description.as_ref().unwrap_or(&"".to_string()),
-                                    &text
-                                ));
+                                row.description = Data::concat(&row.description, &text);
                             }
                             List::Checks => {
-                                row.checks = Some(format!(
-                                    "{}\n{}",
-                                    row.checks.as_ref().unwrap_or(&"".to_string()),
-                                    &text
-                                ));
+                                row.checks = Data::concat(&row.checks, &text);
                             }
                             List::Procedure => {
-                                row.procedure = Some(format!(
-                                    "{}\n{}",
-                                    row.procedure.as_ref().unwrap_or(&"".to_string()),
-                                    &text
-                                ));
+                                row.procedure = Data::concat(&row.procedure, &text);
                             }
                             _ => {}
                         }
                     } else {
                         match state {
                             State::Heading(num) => match num {
-                                1 => {
-                                    sheet.sheet_name = Some(text.to_string())
-                                }
+                                1 => sheet.sheet_name = Some(text.to_string()),
                                 2 => {
-                                    row.variation_1 = Some(format!(
-                                        "{}\n{}",
-                                        row.variation_1.as_ref().unwrap_or(&"".to_string()),
-                                        text
-                                    ))
+                                    row.variation_1 = Data::concat(&row.variation_1, &text);
                                 }
                                 3 => {
-                                    row.variation_2 = Some(format!(
-                                        "{}\n{}",
-                                        row.variation_2.as_ref().unwrap_or(&"".to_string()),
-                                        text
-                                    ))
+                                    row.variation_2 = Data::concat(&row.variation_2, &text);
                                 }
                                 4 => {
-                                    row.variation_3 = Some(format!(
-                                        "{}\n{}",
-                                        row.variation_3.as_ref().unwrap_or(&"".to_string()),
-                                        text
-                                    ))
+                                    row.variation_3 = Data::concat(&row.variation_3, &text);
                                 }
                                 5 => {
-                                    row.variation_4 = Some(format!(
-                                        "{}\n{}",
-                                        row.variation_4.as_ref().unwrap_or(&"".to_string()),
-                                        text
-                                    ))
+                                    row.variation_4 = Data::concat(&row.variation_4, &text);
                                 }
                                 6 => {
-                                    row.variation_5 = Some(format!(
-                                        "{}\n{}",
-                                        row.variation_5.as_ref().unwrap_or(&"".to_string()),
-                                        text
-                                    ))
+                                    row.variation_5 = Data::concat(&row.variation_5, &text);
                                 }
                                 7 => {
-                                    row.variation_6 = Some(format!(
-                                        "{}\n{}",
-                                        row.variation_6.as_ref().unwrap_or(&"".to_string()),
-                                        text
-                                    ))
+                                    row.variation_6 = Data::concat(&row.variation_6, &text);
                                 }
                                 8 => {
-                                    row.variation_7 = Some(format!(
-                                        "{}\n{}",
-                                        row.variation_7.as_ref().unwrap_or(&"".to_string()),
-                                        text
-                                    ))
+                                    row.variation_7 = Data::concat(&row.variation_7, &text);
                                 }
                                 _ => {}
                             },
                             State::List => {
                                 if text.starts_with("!!DSC!!") {
                                     // description
-                                    row.description = Some(format!(
-                                        "{}\n{}",
-                                        row.description.as_ref().unwrap_or(&"".to_string()),
-                                        &text[7..]
-                                    ));
+                                    row.description = Data::concat(&row.description, &text[7..]);
                                     current_list = List::Description;
                                 } else if text.starts_with("!!CHK!!") {
                                     // checks
-                                    row.checks = Some(format!(
-                                        "{}\n{}",
-                                        row.checks.as_ref().unwrap_or(&"".to_string()),
-                                        &text[7..]
-                                    ));
+                                    row.checks = Data::concat(&row.checks, &text[7..]);
                                     current_list = List::Checks;
                                 } else {
                                     // procedure
-                                    row.procedure = Some(format!(
-                                        "{}\n{}",
-                                        row.procedure.as_ref().unwrap_or(&"".to_string()),
-                                        text
-                                    ));
+                                    row.procedure = Data::concat(&row.procedure, &text);
                                     current_list = List::Procedure;
                                 }
                             }
@@ -207,7 +155,124 @@ impl Data {
         // push the last row
         sheet.rows.push(row.clone());
 
-        Ok(Self { sheets: vec![sheet] })
+        Ok(Self {
+            sheets: vec![sheet],
+        })
+    }
+
+    pub fn export_excel(&self) -> Result<()> {
+        let workbook = Workbook::new("test.xlsx");
+        self.sheets.iter().for_each(|sheet| {
+            let mut s = workbook.add_worksheet(sheet.sheet_name.as_deref()).unwrap();
+            let mut wrap_format = workbook.add_format().set_text_wrap();
+            // header
+            s.merge_range(0, 0, 1, 0, "試験項番", None).unwrap();
+            s.merge_range(0, 1, 0, 7, "試験バリエーション", None)
+                .unwrap();
+            s.write_string(1, 1, "項目1", None).unwrap();
+            s.write_string(1, 2, "項目2", None).unwrap();
+            s.write_string(1, 3, "項目3", None).unwrap();
+            s.write_string(1, 4, "項目4", None).unwrap();
+            s.write_string(1, 5, "項目5", None).unwrap();
+            s.write_string(1, 6, "項目6", None).unwrap();
+            s.write_string(1, 7, "項目7", None).unwrap();
+            s.merge_range(0, 8, 1, 8, "試験概要", None).unwrap();
+            s.merge_range(0, 9, 1, 9, "試験手順", None).unwrap();
+            s.merge_range(0, 10, 1, 10, "確認内容", None).unwrap();
+            s.merge_range(0, 11, 1, 11, "優先度", None).unwrap();
+            for i in 0..=2 {
+                let title = format!("{}回目", i + 1);
+                let offset = 4 * i;
+                s.merge_range(0, 12 + offset, 0, 15 + offset, title.as_str(), None)
+                    .unwrap();
+                s.write_string(1, 12 + offset, "試験予定日", None).unwrap();
+                s.write_string(1, 13 + offset, "試験実施日", None).unwrap();
+                s.write_string(1, 14 + offset, "試験者", None).unwrap();
+                s.write_string(1, 15 + offset, "試験結果", None).unwrap();
+            }
+            // body
+            sheet.rows.iter().enumerate().for_each(|(i, row)| {
+                let current_row_idx = i + 2;
+                s.write_string(
+                    current_row_idx as u32,
+                    0,
+                    (i + 1).to_string().as_str(),
+                    None,
+                )
+                .unwrap();
+                s.write_string(
+                    current_row_idx as u32,
+                    1,
+                    &row.variation_1.as_ref().unwrap_or(&"".to_string()),
+                    None,
+                )
+                .unwrap();
+                s.write_string(
+                    current_row_idx as u32,
+                    2,
+                    &row.variation_2.as_ref().unwrap_or(&"".to_string()),
+                    None,
+                )
+                .unwrap();
+                s.write_string(
+                    current_row_idx as u32,
+                    3,
+                    &row.variation_3.as_ref().unwrap_or(&"".to_string()),
+                    None,
+                )
+                .unwrap();
+                s.write_string(
+                    current_row_idx as u32,
+                    4,
+                    &row.variation_4.as_ref().unwrap_or(&"".to_string()),
+                    None,
+                )
+                .unwrap();
+                s.write_string(
+                    current_row_idx as u32,
+                    5,
+                    &row.variation_5.as_ref().unwrap_or(&"".to_string()),
+                    None,
+                )
+                .unwrap();
+                s.write_string(
+                    current_row_idx as u32,
+                    6,
+                    &row.variation_6.as_ref().unwrap_or(&"".to_string()),
+                    None,
+                )
+                .unwrap();
+                s.write_string(
+                    current_row_idx as u32,
+                    7,
+                    &row.variation_7.as_ref().unwrap_or(&"".to_string()),
+                    None,
+                )
+                .unwrap();
+                s.write_string(
+                    current_row_idx as u32,
+                    8,
+                    &row.description.as_ref().unwrap_or(&"".to_string()),
+                    Some(&wrap_format),
+                )
+                .unwrap();
+                s.write_string(
+                    current_row_idx as u32,
+                    9,
+                    &row.procedure.as_ref().unwrap_or(&"".to_string()),
+                    Some(&wrap_format),
+                )
+                .unwrap();
+                s.write_string(
+                    current_row_idx as u32,
+                    10,
+                    &row.checks.as_ref().unwrap_or(&"".to_string()),
+                    Some(&wrap_format),
+                )
+                .unwrap();
+            });
+        });
+        Ok(())
     }
 
     fn custom_filter(input: &str) -> String {
@@ -216,6 +281,14 @@ impl Data {
         let list_1 = Regex::new(r" *(- \[[ |\*]\])").unwrap();
         let input = list_1.replace_all(&input, "- !!CHK!!");
         input.to_string()
+    }
+
+    fn concat(target: &Option<String>, input: &str) -> Option<String> {
+        if let Some(str) = target {
+            return Some(format!("{}\n{}", str, input));
+        } else {
+            return Some(input.to_string());
+        }
     }
 }
 
@@ -227,7 +300,10 @@ struct Sheet {
 
 impl Default for Sheet {
     fn default() -> Self {
-        Self { sheet_name: None, rows: vec![] }
+        Self {
+            sheet_name: None,
+            rows: vec![],
+        }
     }
 }
 
@@ -270,7 +346,8 @@ mod tests {
 
     #[test]
     fn test_marshal() {
-        let data = Data::marshal(r#"
+        let data = Data::marshal(
+            r#"
 # Sheet Name
 ## Test Variation 1
 ### Test Variation 1-1
@@ -281,29 +358,26 @@ mod tests {
 - Test Procedure(2)
 - [ ] Confirmation item(1)
 - [ ] Confirmation item(2)
-"#
-        ).unwrap();
+"#,
+        )
+        .unwrap();
         let expected = Data {
-            sheets: vec![
-                Sheet {
-                    sheet_name: Some(String::from("Sheet Name")),
-                    rows: vec![
-                        Row {
-                            variation_1: Some(String::from("Test Variation 1")),
-                            variation_2: Some(String::from("Test Variation 1-1")),
-                            variation_3: Some(String::from("Test Variation 1-1-1")),
-                            description: Some(String::from("Test Description\nmore lines...")),
-                            procedure: Some(String::from("Test Procedure(1)\nTest Procedure(2)")),
-                            checks: Some(String::from("Confirmation item(1)\nConfirmation item(2)")),
-                            ..Default::default()
-                        }
-                    ]
-                }
-            ]
+            sheets: vec![Sheet {
+                sheet_name: Some(String::from("Sheet Name")),
+                rows: vec![Row {
+                    variation_1: Some(String::from("Test Variation 1")),
+                    variation_2: Some(String::from("Test Variation 1-1")),
+                    variation_3: Some(String::from("Test Variation 1-1-1")),
+                    description: Some(String::from("Test Description\nmore lines...")),
+                    procedure: Some(String::from("Test Procedure(1)\nTest Procedure(2)")),
+                    checks: Some(String::from(" Confirmation item(1)\n Confirmation item(2)")),
+                    ..Default::default()
+                }],
+            }],
         };
         assert_eq!(expected, data);
     }
-    
+
     #[test]
     fn test_custom_filter() {
         let input = r#"
@@ -334,5 +408,19 @@ mod tests {
 "#;
 
         assert_eq!(expected, Data::custom_filter(input));
+    }
+
+    #[test]
+    fn test_concat() {
+        // None
+        let target = None;
+        let input = "input";
+        let result = Data::concat(&target, input);
+        assert_eq!(Some(String::from("input")), result);
+        // Some
+        let target = Some("target".to_string());
+        let input = "input";
+        let result = Data::concat(&target, input);
+        assert_eq!(Some(String::from("target\ninput")), result);
     }
 }

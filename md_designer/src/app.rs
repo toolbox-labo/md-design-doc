@@ -14,7 +14,8 @@ impl App {
         })
     }
 
-    pub fn parse(input: &str) -> Result<()> {
+    pub fn export_excel(&self) -> Result<()> {
+        self.data.export_excel()?;
         Ok(())
     }
 }
