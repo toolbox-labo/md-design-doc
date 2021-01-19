@@ -11,6 +11,10 @@ https://www.rust-lang.org/tools/install
 $ cargo -v
 ```
 
+- install LLVM (for Windows)
+
+For Windows, install [LLVM Pre-built binaries](https://releases.llvm.org/download.html#11.0.0) of Windows(32bit or 64bit).
+
 - clone this repo and cd
 
 ```
