@@ -2,5 +2,6 @@
 
 pub mod app;
 pub mod data;
+pub mod mapping;
 pub mod rule;
 pub mod utils;

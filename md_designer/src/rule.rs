@@ -4,7 +4,7 @@ use anyhow::Result;
 use yaml_rust::{Yaml, YamlLoader};
 
 pub struct Rule {
-    doc: Doc,
+    pub doc: Doc,
 }
 
 impl Rule {
@@ -94,8 +94,8 @@ impl Default for Rule {
     }
 }
 
-struct Doc {
-    blocks: Vec<Block>,
+pub struct Doc {
+    pub blocks: Vec<Block>,
 }
 
 impl Default for Doc {
@@ -105,8 +105,8 @@ impl Default for Doc {
 }
 
 #[derive(Debug)]
-struct Block {
-    columns: Vec<Column>,
+pub struct Block {
+    pub columns: Vec<Column>,
 }
 
 impl Default for Block {
@@ -116,11 +116,11 @@ impl Default for Block {
 }
 
 #[derive(Debug)]
-struct Column {
-    title: String,
-    auto_increment: bool,
-    cmark_tag: String,
-    group: Option<Rc<Group>>,
+pub struct Column {
+    pub title: String,
+    pub auto_increment: bool,
+    pub cmark_tag: String,
+    pub group: Option<Rc<Group>>,
 }
 
 impl Default for Column {
@@ -135,6 +135,6 @@ impl Default for Column {
 }
 
 #[derive(Debug)]
-struct Group {
-    title: String,
+pub struct Group {
+    pub title: String,
 }
