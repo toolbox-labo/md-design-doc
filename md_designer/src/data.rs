@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use pulldown_cmark::{Event, Options, Parser, Tag};
 use regex::Regex;
 
-#[cfg(feature="excel")]
+#[cfg(feature = "excel")]
 use xlsxwriter::*;
 
 enum State {
@@ -60,7 +60,7 @@ impl Data {
                 } else if text.starts_with("######## ") {
                     return Event::Start(Tag::Heading(8));
                 } else {
-                    return event;
+                    event
                 }
             }
             _ => event,
@@ -88,13 +88,13 @@ impl Data {
                     if soft_break {
                         match current_list {
                             List::Description => {
-                                row.description = Data::concat(&row.description, &text);
+                                row.description = Some(Data::concat(&row.description, &text));
                             }
                             List::Checks => {
-                                row.checks = Data::concat(&row.checks, &text);
+                                row.checks = Some(Data::concat(&row.checks, &text));
                             }
                             List::Procedure => {
-                                row.procedure = Data::concat(&row.procedure, &text);
+                                row.procedure = Some(Data::concat(&row.procedure, &text));
                             }
                             _ => {}
                         }
@@ -103,40 +103,40 @@ impl Data {
                             State::Heading(num) => match num {
                                 1 => sheet.sheet_name = Some(text.to_string()),
                                 2 => {
-                                    row.variation_1 = Data::concat(&row.variation_1, &text);
+                                    row.variation_1 = Some(Data::concat(&row.variation_1, &text));
                                 }
                                 3 => {
-                                    row.variation_2 = Data::concat(&row.variation_2, &text);
+                                    row.variation_2 = Some(Data::concat(&row.variation_2, &text));
                                 }
                                 4 => {
-                                    row.variation_3 = Data::concat(&row.variation_3, &text);
+                                    row.variation_3 = Some(Data::concat(&row.variation_3, &text));
                                 }
                                 5 => {
-                                    row.variation_4 = Data::concat(&row.variation_4, &text);
+                                    row.variation_4 = Some(Data::concat(&row.variation_4, &text));
                                 }
                                 6 => {
-                                    row.variation_5 = Data::concat(&row.variation_5, &text);
+                                    row.variation_5 = Some(Data::concat(&row.variation_5, &text));
                                 }
                                 7 => {
-                                    row.variation_6 = Data::concat(&row.variation_6, &text);
+                                    row.variation_6 = Some(Data::concat(&row.variation_6, &text));
                                 }
                                 8 => {
-                                    row.variation_7 = Data::concat(&row.variation_7, &text);
+                                    row.variation_7 = Some(Data::concat(&row.variation_7, &text));
                                 }
                                 _ => {}
                             },
                             State::List => {
-                                if text.starts_with("!!DSC!!") {
+                                if let Some(txt) = text.strip_prefix("!!DSC!!") {
                                     // description
-                                    row.description = Data::concat(&row.description, &text[7..]);
+                                    row.description = Some(Data::concat(&row.description, &txt));
                                     current_list = List::Description;
-                                } else if text.starts_with("!!CHK!!") {
+                                } else if let Some(txt) = text.strip_prefix("!!CHK!!") {
                                     // checks
-                                    row.checks = Data::concat(&row.checks, &text[7..]);
+                                    row.checks = Some(Data::concat(&row.checks, &txt));
                                     current_list = List::Checks;
                                 } else {
                                     // procedure
-                                    row.procedure = Data::concat(&row.procedure, &text);
+                                    row.procedure = Some(Data::concat(&row.procedure, &text));
                                     current_list = List::Procedure;
                                 }
                             }
@@ -144,25 +144,22 @@ impl Data {
                         }
                     }
                 }
-                Event::End(tag) => match tag {
-                    Tag::List(_) => {
-                        last_is_list = true;
-                    }
-                    _ => {}
-                },
+                Event::End(Tag::List(_)) => {
+                    last_is_list = true;
+                }
                 _ => {}
             }
             soft_break = is_fb;
         });
         // push the last row
-        sheet.rows.push(row.clone());
+        sheet.rows.push(row);
 
         Ok(Self {
             sheets: vec![sheet],
         })
     }
 
-    #[cfg(feature="excel")]
+    #[cfg(feature = "excel")]
     pub fn export_excel(&self) -> Result<()> {
         let workbook = Workbook::new("test.xlsx");
         self.sheets.iter().for_each(|sheet| {
@@ -286,11 +283,11 @@ impl Data {
         input.to_string()
     }
 
-    fn concat(target: &Option<String>, input: &str) -> Option<String> {
+    fn concat(target: &Option<String>, input: &str) -> String {
         if let Some(str) = target {
-            return Some(format!("{}\n{}", str, input));
+            format!("{}\n{}", str, input)
         } else {
-            return Some(input.to_string());
+            input.to_string()
         }
     }
 }
@@ -419,11 +416,11 @@ mod tests {
         let target = None;
         let input = "input";
         let result = Data::concat(&target, input);
-        assert_eq!(Some(String::from("input")), result);
+        assert_eq!(String::from("input"), result);
         // Some
         let target = Some("target".to_string());
         let input = "input";
         let result = Data::concat(&target, input);
-        assert_eq!(Some(String::from("target\ninput")), result);
+        assert_eq!(String::from("target\ninput"), result);
     }
 }

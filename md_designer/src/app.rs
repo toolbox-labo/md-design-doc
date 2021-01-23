@@ -13,7 +13,7 @@ impl App {
         })
     }
 
-    #[cfg(feature="excel")]
+    #[cfg(feature = "excel")]
     pub fn export_excel(&self) -> Result<()> {
         self.data.export_excel()?;
         Ok(())
