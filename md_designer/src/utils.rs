@@ -15,3 +15,11 @@ pub fn string_to_cmarktag(input: &str) -> Result<Tag<'_>> {
         _ => Err(anyhow!("input string is malformed")),
     }
 }
+
+pub fn cmarktag_stringify(tag: &Tag<'_>) -> Option<String> {
+    match tag {
+        Tag::Heading(idx) => Some(format!("Heading{}", idx)),
+        Tag::List(_) => Some(format!("List")),
+        _ => None,
+    }
+}

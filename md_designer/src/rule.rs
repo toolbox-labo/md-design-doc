@@ -3,6 +3,7 @@ use std::rc::Rc;
 use anyhow::Result;
 use yaml_rust::{Yaml, YamlLoader};
 
+#[derive(Debug, PartialEq)]
 pub struct Rule {
     pub doc: Doc,
 }
@@ -81,7 +82,7 @@ impl Rule {
         }
 
         Ok(Rule {
-            doc: Doc { blocks: vec![] },
+            doc: Doc { blocks: blcs },
         })
     }
 }
@@ -94,6 +95,7 @@ impl Default for Rule {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct Doc {
     pub blocks: Vec<Block>,
 }
@@ -104,7 +106,7 @@ impl Default for Doc {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Block {
     pub columns: Vec<Column>,
 }
@@ -115,7 +117,7 @@ impl Default for Block {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Column {
     pub title: String,
     pub auto_increment: bool,
@@ -134,7 +136,7 @@ impl Default for Column {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Group {
     pub title: String,
 }

@@ -2,6 +2,8 @@ use anyhow::{anyhow, Result};
 use pulldown_cmark::{Event, Options, Parser, Tag};
 use regex::Regex;
 
+use crate::{mapping::Mapping, rule::Rule};
+
 #[cfg(feature = "excel")]
 use xlsxwriter::*;
 
@@ -22,16 +24,112 @@ enum List {
 #[derive(Debug, PartialEq)]
 pub struct Data {
     sheets: Vec<Sheet>,
+    rule: Rule,
+    mapping: Mapping,
 }
 
 impl Default for Data {
     fn default() -> Self {
-        Self { sheets: vec![] }
+        Self {
+            sheets: vec![],
+            rule: Rule::default(),
+            mapping: Mapping::default(),
+        }
     }
 }
 
 impl Data {
-    pub fn marshal(input: &str) -> Result<Self> {
+    pub fn marshal(input: &str, rule: Rule) -> Result<Self> {
+        // trim first empty lines
+        let input = input.trim_start();
+
+        // convert the rule into mapping
+        let mapping = Mapping::new(rule).unwrap();
+
+        // check is first line is Heading(1)
+        // (sheet name is required)
+        if !input.starts_with("# ") {
+            return Err(anyhow!("input must start with '# ' (sheet name)."));
+        }
+
+        // marshal
+        // expand parser to be able to handle 7th heading
+        let mut options = Options::empty();
+        options.insert(Options::ENABLE_TASKLISTS);
+        //let input = Data::custom_filter(input);
+        let parser = Parser::new_ext(&input, options);
+        let parser = parser.map(|event| match event {
+            Event::Text(ref text) => {
+                if text.starts_with("####### ") {
+                    return Event::Start(Tag::Heading(7));
+                } else if text.starts_with("######## ") {
+                    return Event::Start(Tag::Heading(8));
+                } else {
+                    event
+                }
+            }
+            _ => event,
+        });
+
+        let current_block: usize = 0;
+        let mut current_column: usize = 0;
+        let mut sheet = Sheet::default();
+        let mut block = Block::default();
+        let mut row = Row::new(current_block, &mapping);
+        let mut last_is_list = false;
+
+        parser.for_each(|event| {
+            // is last line soft break
+            // if true, next text data is append to current column
+            //let mut is_fb = false;
+            match event {
+                Event::SoftBreak => {
+                    //is_fb = true;
+                }
+                Event::Start(tag) => {
+                    if last_is_list {
+                        // start a new row
+                        block.rows.push(row.clone());
+                        row = Row::new(current_block, &mapping);
+                        last_is_list = false;
+                    }
+                    if let Some(column_idx) = mapping.get_idx(current_block, &tag) {
+                        current_column = *column_idx;
+                    }
+                }
+                Event::Text(text) => {
+                    row.columns[current_column] =
+                        Data::concat(&row.columns.get(current_column), &text);
+                }
+                Event::End(Tag::List(_)) => {
+                    last_is_list = true;
+                }
+                _ => {}
+            }
+        });
+        // push the last row
+        block.rows.push(row);
+        sheet.blocks.push(block);
+
+        println!("{:?}", sheet);
+
+        Ok(Self {
+            sheets: vec![sheet],
+            rule,
+            mapping,
+        })
+    }
+
+    #[cfg(feature = "excel")]
+    pub fn export_excel(&self) -> Result<()> {
+        let workbook = Workbook::new("test.xlsx");
+        self.sheets.iter().for_each(|sheet| {
+            let mut s = workbook.add_worksheet(sheet.sheet_name.as_deref()).unwrap();
+        })
+    }
+
+    /*
+    pub fn marshal(input: &str, rule: &Rule) -> Result<Self> {
         // trim first empty lines
         let input = input.trim_start();
 
@@ -158,7 +256,9 @@ impl Data {
             sheets: vec![sheet],
         })
     }
+    */
 
+    /*
     #[cfg(feature = "excel")]
     pub fn export_excel(&self) -> Result<()> {
         let workbook = Workbook::new("test.xlsx");
@@ -274,6 +374,7 @@ impl Data {
         });
         Ok(())
     }
+    */
 
     fn custom_filter(input: &str) -> String {
         let list_1 = Regex::new(r" *(\* )").unwrap();
@@ -283,7 +384,7 @@ impl Data {
         input.to_string()
     }
 
-    fn concat(target: &Option<String>, input: &str) -> String {
+    fn concat(target: &Option<&String>, input: &str) -> String {
         if let Some(str) = target {
             format!("{}\n{}", str, input)
         } else {
@@ -295,51 +396,49 @@ impl Data {
 #[derive(Debug, PartialEq)]
 struct Sheet {
     sheet_name: Option<String>,
-    rows: Vec<Row>,
+    blocks: Vec<Block>,
 }
 
 impl Default for Sheet {
     fn default() -> Self {
         Self {
             sheet_name: None,
-            rows: vec![],
+            blocks: vec![],
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct Row {
-    variation_1: Option<String>,
-    variation_2: Option<String>,
-    variation_3: Option<String>,
-    variation_4: Option<String>,
-    variation_5: Option<String>,
-    variation_6: Option<String>,
-    variation_7: Option<String>,
-    description: Option<String>,
-    procedure: Option<String>,
-    checks: Option<String>,
-    is_priority_high: bool,
+struct Block {
+    rows: Vec<Row>,
 }
 
-impl Default for Row {
+impl Default for Block {
     fn default() -> Self {
-        Self {
-            variation_1: None,
-            variation_2: None,
-            variation_3: None,
-            variation_4: None,
-            variation_5: None,
-            variation_6: None,
-            variation_7: None,
-            description: None,
-            procedure: None,
-            checks: None,
-            is_priority_high: false,
+        Self { rows: vec![] }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct Row {
+    columns: Vec<String>,
+}
+
+impl Row {
+    fn new(block_idx: usize, mapping: &Mapping) -> Self {
+        Row {
+            columns: vec![String::default(); mapping.get_size(block_idx).unwrap_or(0)],
         }
     }
 }
 
+impl Default for Row {
+    fn default() -> Self {
+        Self { columns: vec![] }
+    }
+}
+
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -424,3 +523,4 @@ mod tests {
         assert_eq!(String::from("target\ninput"), result);
     }
 }
+*/
