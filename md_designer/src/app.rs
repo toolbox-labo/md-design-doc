@@ -13,9 +13,9 @@ impl App {
         })
     }
 
-    // #[cfg(feature = "excel")]
-    // pub fn export_excel(&self) -> Result<()> {
-    //     self.data.export_excel()?;
-    //     Ok(())
-    // }
+    #[cfg(feature = "excel")]
+    pub fn export_excel(&self) -> Result<()> {
+        self.data.export_excel()?;
+        Ok(())
+    }
 }

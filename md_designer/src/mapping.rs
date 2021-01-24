@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::Result;
 use pulldown_cmark::Tag;
 
-use crate::{rule::Rule, utils::cmarktag_stringify};
+use crate::{rule::Rule, utils::cmarktag_stringify, constant::AUTO_INCREMENT_KEY};
 
 #[derive(Debug, PartialEq)]
 pub struct Mapping {
@@ -16,7 +16,11 @@ impl Mapping {
         rule.doc.blocks.iter().for_each(|block| {
             let mut data = HashMap::new();
             block.columns.iter().enumerate().for_each(|(idx, column)| {
-                data.insert(column.cmark_tag.clone(), idx);
+                if column.auto_increment {
+                    data.insert(AUTO_INCREMENT_KEY.clone(), idx);
+                } else {
+                    data.insert(column.cmark_tag.clone(), idx);
+                }
             });
             mappings.push(data);
         });
@@ -34,8 +38,14 @@ impl Mapping {
         None
     }
 
+    pub fn get_auto_increment_idx(&self, block_idx: usize) -> Option<&usize> {
+        if let Some(map) = self.mappings.get(block_idx) {
+            return map.get(&AUTO_INCREMENT_KEY.clone());
+        }
+        None
+    }
+
     pub fn get_size(&self, block_idx: usize) -> Option<usize> {
-        //println!("{:?}", self);
         if let Some(map) = self.mappings.get(block_idx) {
             return Some(map.len());
         }

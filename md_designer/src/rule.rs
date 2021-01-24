@@ -4,6 +4,23 @@ use anyhow::Result;
 use yaml_rust::{Yaml, YamlLoader};
 
 #[derive(Debug, PartialEq)]
+pub struct MergeInfo {
+    pub title: String,
+    pub from: u16,
+    pub to: u16,
+}
+
+impl MergeInfo {
+    pub fn new(title: &str, from: u16, to: u16) -> Self {
+        MergeInfo {
+            title: title.to_string(),
+            from,
+            to,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct Rule {
     pub doc: Doc,
 }
@@ -19,22 +36,27 @@ impl Rule {
             blocks.iter().for_each(|v| {
                 let mut blc = Block::default();
                 if let Some(block) = v["block"].as_vec() {
+                    let mut idx: usize = 0;
+                    let mut group_from: Option<usize> = None;
+                    let mut group_to: Option<usize> = None;
                     block.iter().for_each(|w| {
                         if let Some(col_or_grp) = w.as_hash() {
                             let (col_or_grp_list, group) = if col_or_grp
                                 .contains_key(&Yaml::String("column".to_string()))
                             {
+                                idx += 1;
                                 (vec![col_or_grp], None)
                             } else if col_or_grp.contains_key(&Yaml::String("group".to_string())) {
+                                let grp_list = col_or_grp
+                                    .get(&Yaml::String("columns".to_string()))
+                                    .unwrap()
+                                    .as_vec()
+                                    .unwrap();
+                                group_from = Some(idx);
+                                idx = idx.saturating_add(grp_list.len());
+                                group_to = Some(idx);
                                 (
-                                    col_or_grp
-                                        .get(&Yaml::String("columns".to_string()))
-                                        .unwrap()
-                                        .as_vec()
-                                        .unwrap()
-                                        .iter()
-                                        .map(|v| v.as_hash().unwrap())
-                                        .collect(),
+                                    grp_list.iter().map(|v| v.as_hash().unwrap()).collect(),
                                     Some(Rc::new(Group {
                                         title: String::from(
                                             col_or_grp
@@ -46,6 +68,7 @@ impl Rule {
                                     })),
                                 )
                             } else {
+                                idx += 1;
                                 (vec![], None)
                             };
                             col_or_grp_list.iter().for_each(|clm| {
@@ -74,6 +97,13 @@ impl Rule {
                                     },
                                 });
                             });
+                            if let Some(g) = &group {
+                                blc.merge_info.push(MergeInfo::new(
+                                    g.title.as_str(),
+                                    group_from.unwrap() as u16,
+                                    group_to.unwrap() as u16,
+                                ));
+                            }
                         }
                     });
                 }
@@ -109,11 +139,15 @@ impl Default for Doc {
 #[derive(Debug, PartialEq)]
 pub struct Block {
     pub columns: Vec<Column>,
+    pub merge_info: Vec<MergeInfo>,
 }
 
 impl Default for Block {
     fn default() -> Self {
-        Block { columns: vec![] }
+        Block {
+            columns: vec![],
+            merge_info: vec![],
+        }
     }
 }
 

@@ -33,8 +33,6 @@ fn main() -> Result<()> {
         "".to_string()
     };
 
-    app.export_excel()?;
-
     let cfg_text = if let Some(path) = clap.value_of("conf_path") {
         fs::read_to_string(path)?
     } else {
@@ -44,6 +42,8 @@ fn main() -> Result<()> {
     let rule = Rule::marshal(&cfg_text)?;
 
     let app = App::new(&input_text, rule)?;
+
+    app.export_excel()?;
 
     Ok(())
 }

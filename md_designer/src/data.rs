@@ -1,24 +1,27 @@
 use anyhow::{anyhow, Result};
 use pulldown_cmark::{Event, Options, Parser, Tag};
-use regex::Regex;
 
-use crate::{mapping::Mapping, rule::Rule};
+use crate::{
+    mapping::Mapping,
+    rule::Rule,
+};
 
 #[cfg(feature = "excel")]
 use xlsxwriter::*;
 
-enum State {
-    Nothing,
-    Heading(u32),
-    List,
-    //Check,
+pub struct CellRange {
+    from: u16,
+    to: u16,
 }
 
-enum List {
-    Nothing,
-    Description,
-    Checks,
-    Procedure,
+impl CellRange {
+    pub fn new(from: u16, to: u16) -> Self {
+        CellRange { from, to }
+    }
+
+    pub fn contain(&self, pos: u16) -> bool {
+        self.from <= pos && pos <= self.to
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -44,7 +47,7 @@ impl Data {
         let input = input.trim_start();
 
         // convert the rule into mapping
-        let mapping = Mapping::new(rule).unwrap();
+        let mapping = Mapping::new(&rule).unwrap();
 
         // check is first line is Heading(1)
         // (sheet name is required)
@@ -77,37 +80,55 @@ impl Data {
         let mut block = Block::default();
         let mut row = Row::new(current_block, &mapping);
         let mut last_is_list = false;
+        let mut is_sheet_name = false;
+        let mut current_row = 1;
 
         parser.for_each(|event| {
             // is last line soft break
             // if true, next text data is append to current column
-            //let mut is_fb = false;
             match event {
-                Event::SoftBreak => {
-                    //is_fb = true;
-                }
                 Event::Start(tag) => {
-                    if last_is_list {
-                        // start a new row
-                        block.rows.push(row.clone());
-                        row = Row::new(current_block, &mapping);
-                        last_is_list = false;
-                    }
-                    if let Some(column_idx) = mapping.get_idx(current_block, &tag) {
-                        current_column = *column_idx;
+                    if let Tag::Heading(1) = tag {
+                        // Heading 1 is the sheet name
+                        is_sheet_name = true;
+                    } else {
+                        if last_is_list {
+                            // start a new row
+                            // insert auto incremented id if rule exists
+                            if let Some(id_idx) = mapping.get_auto_increment_idx(current_block) {
+                                row.columns[*id_idx] = format!("{}", current_row);
+                            }
+                            block.rows.push(row.clone());
+                            row = Row::new(current_block, &mapping);
+                            last_is_list = false;
+                            current_row += 1;
+                        }
+                        if let Some(column_idx) = mapping.get_idx(current_block, &tag) {
+                            current_column = *column_idx;
+                        }
                     }
                 }
                 Event::Text(text) => {
-                    row.columns[current_column] =
-                        Data::concat(&row.columns.get(current_column), &text);
+                    if is_sheet_name {
+                        sheet.sheet_name = Some(text.to_string());
+                    } else {
+                        row.columns[current_column] =
+                            Data::concat(&row.columns.get(current_column), &text);
+                    }
                 }
-                Event::End(Tag::List(_)) => {
-                    last_is_list = true;
+                Event::End(tag) => {
+                    if let Tag::List(_) = tag {
+                        last_is_list = true;
+                    }
+                    is_sheet_name = false;
                 }
                 _ => {}
             }
         });
         // push the last row
+        if let Some(id_idx) = mapping.get_auto_increment_idx(current_block) {
+            row.columns[*id_idx] = format!("{}", current_row);
+        }
         block.rows.push(row);
         sheet.blocks.push(block);
 
@@ -122,266 +143,90 @@ impl Data {
 
     #[cfg(feature = "excel")]
     pub fn export_excel(&self) -> Result<()> {
-        let workbook = Workbook::new("test.xlsx");
-        self.sheets.iter().for_each(|sheet| {
-            let mut s = workbook.add_worksheet(sheet.sheet_name.as_deref()).unwrap();
-        })
-    }
-
-    /*
-    pub fn marshal(input: &str, rule: &Rule) -> Result<Self> {
-        // trim first empty lines
-        let input = input.trim_start();
-
-        // check is first line is Heading(1)
-        // (sheet name is required)
-        if !input.starts_with("# ") {
-            return Err(anyhow!("input must start with '# ' (sheet name)."));
-        }
-
-        // marshal
-        let mut options = Options::empty();
-        options.insert(Options::ENABLE_TASKLISTS);
-        let input = Data::custom_filter(input);
-        let parser = Parser::new_ext(&input, options);
-        let mut sheet = Sheet::default();
-        let mut row = Row::default();
-        let mut last_is_list = false;
-        let mut state = State::Nothing;
-        let mut current_list = List::Nothing;
-        let mut soft_break = false;
-        // expand parser to be able to handle 7th heading
-        let parser = parser.map(|event| match event {
-            Event::Text(ref text) => {
-                if text.starts_with("####### ") {
-                    return Event::Start(Tag::Heading(7));
-                } else if text.starts_with("######## ") {
-                    return Event::Start(Tag::Heading(8));
-                } else {
-                    event
-                }
-            }
-            _ => event,
-        });
-        parser.for_each(|event| {
-            let mut is_fb = false;
-            match event {
-                Event::SoftBreak => {
-                    is_fb = true;
-                }
-                Event::Start(tag) => {
-                    if last_is_list {
-                        // start a new row
-                        sheet.rows.push(row.clone());
-                        row = Row::default();
-                        last_is_list = false;
-                    }
-                    match tag {
-                        Tag::Heading(num) => state = State::Heading(num),
-                        Tag::List(_) => state = State::List,
-                        _ => {}
-                    }
-                }
-                Event::Text(text) => {
-                    if soft_break {
-                        match current_list {
-                            List::Description => {
-                                row.description = Some(Data::concat(&row.description, &text));
-                            }
-                            List::Checks => {
-                                row.checks = Some(Data::concat(&row.checks, &text));
-                            }
-                            List::Procedure => {
-                                row.procedure = Some(Data::concat(&row.procedure, &text));
-                            }
-                            _ => {}
-                        }
-                    } else {
-                        match state {
-                            State::Heading(num) => match num {
-                                1 => sheet.sheet_name = Some(text.to_string()),
-                                2 => {
-                                    row.variation_1 = Some(Data::concat(&row.variation_1, &text));
-                                }
-                                3 => {
-                                    row.variation_2 = Some(Data::concat(&row.variation_2, &text));
-                                }
-                                4 => {
-                                    row.variation_3 = Some(Data::concat(&row.variation_3, &text));
-                                }
-                                5 => {
-                                    row.variation_4 = Some(Data::concat(&row.variation_4, &text));
-                                }
-                                6 => {
-                                    row.variation_5 = Some(Data::concat(&row.variation_5, &text));
-                                }
-                                7 => {
-                                    row.variation_6 = Some(Data::concat(&row.variation_6, &text));
-                                }
-                                8 => {
-                                    row.variation_7 = Some(Data::concat(&row.variation_7, &text));
-                                }
-                                _ => {}
-                            },
-                            State::List => {
-                                if let Some(txt) = text.strip_prefix("!!DSC!!") {
-                                    // description
-                                    row.description = Some(Data::concat(&row.description, &txt));
-                                    current_list = List::Description;
-                                } else if let Some(txt) = text.strip_prefix("!!CHK!!") {
-                                    // checks
-                                    row.checks = Some(Data::concat(&row.checks, &txt));
-                                    current_list = List::Checks;
-                                } else {
-                                    // procedure
-                                    row.procedure = Some(Data::concat(&row.procedure, &text));
-                                    current_list = List::Procedure;
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                Event::End(Tag::List(_)) => {
-                    last_is_list = true;
-                }
-                _ => {}
-            }
-            soft_break = is_fb;
-        });
-        // push the last row
-        sheet.rows.push(row);
-
-        Ok(Self {
-            sheets: vec![sheet],
-        })
-    }
-    */
-
-    /*
-    #[cfg(feature = "excel")]
-    pub fn export_excel(&self) -> Result<()> {
+        // TODO: customizable start positions
+        let (_start_x, _start_y) = (0, 0);
+        let (block_start_x, mut block_start_y) = (0, 0);
         let workbook = Workbook::new("test.xlsx");
         self.sheets.iter().for_each(|sheet| {
             let mut s = workbook.add_worksheet(sheet.sheet_name.as_deref()).unwrap();
             let wrap_format = workbook.add_format().set_text_wrap();
-            // header
-            s.merge_range(0, 0, 1, 0, "試験項番", None).unwrap();
-            s.merge_range(0, 1, 0, 7, "試験バリエーション", None)
-                .unwrap();
-            s.write_string(1, 1, "項目1", None).unwrap();
-            s.write_string(1, 2, "項目2", None).unwrap();
-            s.write_string(1, 3, "項目3", None).unwrap();
-            s.write_string(1, 4, "項目4", None).unwrap();
-            s.write_string(1, 5, "項目5", None).unwrap();
-            s.write_string(1, 6, "項目6", None).unwrap();
-            s.write_string(1, 7, "項目7", None).unwrap();
-            s.merge_range(0, 8, 1, 8, "試験概要", None).unwrap();
-            s.merge_range(0, 9, 1, 9, "試験手順", None).unwrap();
-            s.merge_range(0, 10, 1, 10, "確認内容", None).unwrap();
-            s.merge_range(0, 11, 1, 11, "優先度", None).unwrap();
-            for i in 0..=2 {
-                let title = format!("{}回目", i + 1);
-                let offset = 4 * i;
-                s.merge_range(0, 12 + offset, 0, 15 + offset, title.as_str(), None)
-                    .unwrap();
-                s.write_string(1, 12 + offset, "試験予定日", None).unwrap();
-                s.write_string(1, 13 + offset, "試験実施日", None).unwrap();
-                s.write_string(1, 14 + offset, "試験者", None).unwrap();
-                s.write_string(1, 15 + offset, "試験結果", None).unwrap();
-            }
-            // body
-            sheet.rows.iter().enumerate().for_each(|(i, row)| {
-                let current_row_idx = i + 2;
-                s.write_string(
-                    current_row_idx as u32,
-                    0,
-                    (i + 1).to_string().as_str(),
-                    None,
-                )
-                .unwrap();
-                s.write_string(
-                    current_row_idx as u32,
-                    1,
-                    &row.variation_1.as_ref().unwrap_or(&"".to_string()),
-                    None,
-                )
-                .unwrap();
-                s.write_string(
-                    current_row_idx as u32,
-                    2,
-                    &row.variation_2.as_ref().unwrap_or(&"".to_string()),
-                    None,
-                )
-                .unwrap();
-                s.write_string(
-                    current_row_idx as u32,
-                    3,
-                    &row.variation_3.as_ref().unwrap_or(&"".to_string()),
-                    None,
-                )
-                .unwrap();
-                s.write_string(
-                    current_row_idx as u32,
-                    4,
-                    &row.variation_4.as_ref().unwrap_or(&"".to_string()),
-                    None,
-                )
-                .unwrap();
-                s.write_string(
-                    current_row_idx as u32,
-                    5,
-                    &row.variation_5.as_ref().unwrap_or(&"".to_string()),
-                    None,
-                )
-                .unwrap();
-                s.write_string(
-                    current_row_idx as u32,
-                    6,
-                    &row.variation_6.as_ref().unwrap_or(&"".to_string()),
-                    None,
-                )
-                .unwrap();
-                s.write_string(
-                    current_row_idx as u32,
-                    7,
-                    &row.variation_7.as_ref().unwrap_or(&"".to_string()),
-                    None,
-                )
-                .unwrap();
-                s.write_string(
-                    current_row_idx as u32,
-                    8,
-                    &row.description.as_ref().unwrap_or(&"".to_string()),
-                    Some(&wrap_format),
-                )
-                .unwrap();
-                s.write_string(
-                    current_row_idx as u32,
-                    9,
-                    &row.procedure.as_ref().unwrap_or(&"".to_string()),
-                    Some(&wrap_format),
-                )
-                .unwrap();
-                s.write_string(
-                    current_row_idx as u32,
-                    10,
-                    &row.checks.as_ref().unwrap_or(&"".to_string()),
-                    Some(&wrap_format),
-                )
-                .unwrap();
+            sheet.blocks.iter().enumerate().for_each(|(idx, block)| {
+                let mut merged_posisitons: Vec<CellRange> = vec![];
+                if let Some(b) = self.rule.doc.blocks.get(idx) {
+                    // Header
+                    // render the merged cells first
+                    // and store the merged column indexes
+                    b.merge_info.iter().for_each(|merge_info| {
+                        s.merge_range(
+                            block_start_y,
+                            merge_info.from,
+                            block_start_y,
+                            merge_info.to,
+                            &merge_info.title,
+                            None,
+                        )
+                        .unwrap();
+                        merged_posisitons.push(CellRange::new(merge_info.from, merge_info.to));
+                    });
+                    // render the remaining headers
+                    let header_merged = !merged_posisitons.is_empty();
+                    b.columns.iter().enumerate().for_each(
+                        |(pos_x, column)| {
+                            let pos_x = pos_x as u16;
+                            // check if pos_x is within merged range
+                            let mut in_merged_range = false;
+                            for merged_pos in merged_posisitons.iter() {
+                                if merged_pos.contain(pos_x) {
+                                    in_merged_range = true;
+                                    break;
+                                }
+                            }
+                            if in_merged_range {
+                                s.write_string(block_start_y + 1, pos_x, &column.title, None)
+                                    .unwrap();
+                            } else if header_merged {
+                                s.merge_range(
+                                    block_start_y,
+                                    pos_x,
+                                    block_start_y + 1,
+                                    pos_x,
+                                    &column.title,
+                                    None,
+                                )
+                                .unwrap();
+                            } else {
+                                s.write_string(block_start_y, pos_x, &column.title, None)
+                                    .unwrap();
+                            }
+                        },
+                    );
+                    if header_merged {
+                        block_start_y += 1;
+                    }
+
+                    // Body
+                    let _body_start_x = block_start_x;
+                    let body_start_y = block_start_y + 1;
+                    let mut last_y = 0;
+                    for (y_offset, row) in block.rows.iter().enumerate() {
+                        for (x_offset, column) in row.columns.iter().enumerate() {
+                            s.write_string(
+                                body_start_y + (y_offset as u32),
+                                block_start_x + x_offset as u16,
+                                &column,
+                                Some(&wrap_format),
+                            )
+                            .unwrap();
+                        }
+                        last_y = y_offset;
+                    }
+                    
+                    // update block_start_y for the next block
+                    block_start_y += (last_y + 1) as u32;
+                }
             });
         });
         Ok(())
-    }
-    */
-
-    fn custom_filter(input: &str) -> String {
-        let list_1 = Regex::new(r" *(\* )").unwrap();
-        let input = list_1.replace_all(&input, "- !!DSC!!");
-        let list_1 = Regex::new(r" *(- \[[ |\*]\])").unwrap();
-        let input = list_1.replace_all(&input, "- !!CHK!!");
-        input.to_string()
     }
 
     fn concat(target: &Option<&String>, input: &str) -> String {
