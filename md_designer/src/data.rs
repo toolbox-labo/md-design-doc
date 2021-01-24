@@ -132,8 +132,6 @@ impl Data {
         block.rows.push(row);
         sheet.blocks.push(block);
 
-        println!("{:?}", sheet);
-
         Ok(Self {
             sheets: vec![sheet],
             rule,
@@ -283,13 +281,41 @@ impl Default for Row {
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_marshal() {
+        let rule = Rule::marshal(
+            r#"
+doc:
+  blocks:
+    - block:
+      - column: No
+        isNum: true
+      - group: Variation
+        columns:
+        - column: Variation 1
+          md: Heading2
+        - column: Variation 2
+          md: Heading3
+        - column: Variation 3
+          md: Heading4
+        - column: Variation 4
+          md: Heading5
+        - column: Variation 5
+          md: Heading6
+        - column: Variation 6
+          md: Heading7
+        - column: Variation 7
+          md: Heading8
+        - column: Description
+          md: List
+            "#,
+        ).unwrap();
+        let rule_clone = rule.clone();
+        let mapping = Mapping::new(&rule).unwrap();
         let data = Data::marshal(
             r#"
 # Sheet Name
@@ -298,60 +324,37 @@ mod tests {
 #### Test Variation 1-1-1
 * Test Description
   more lines...
-- Test Procedure(1)
-- Test Procedure(2)
-- [ ] Confirmation item(1)
-- [ ] Confirmation item(2)
-"#,
+            "#,
+            rule
         )
         .unwrap();
         let expected = Data {
             sheets: vec![Sheet {
                 sheet_name: Some(String::from("Sheet Name")),
-                rows: vec![Row {
-                    variation_1: Some(String::from("Test Variation 1")),
-                    variation_2: Some(String::from("Test Variation 1-1")),
-                    variation_3: Some(String::from("Test Variation 1-1-1")),
-                    description: Some(String::from("Test Description\nmore lines...")),
-                    procedure: Some(String::from("Test Procedure(1)\nTest Procedure(2)")),
-                    checks: Some(String::from(" Confirmation item(1)\n Confirmation item(2)")),
-                    ..Default::default()
-                }],
+                blocks: vec![
+                    Block {
+                        rows: vec![
+                            Row {
+                                columns: vec![
+                                    String::from("1"),
+                                    String::from("\nTest Variation 1"),
+                                    String::from("\nTest Variation 1-1"),
+                                    String::from("\nTest Variation 1-1-1"),
+                                    String::default(),
+                                    String::default(),
+                                    String::default(),
+                                    String::default(),
+                                    String::from("\nTest Description\nmore lines..."),
+                                ],
+                            }
+                        ]
+                    }
+                ],
             }],
+            mapping,
+            rule: rule_clone, 
         };
         assert_eq!(expected, data);
-    }
-
-    #[test]
-    fn test_custom_filter() {
-        let input = r#"
-# Sheet1
-## variation 1
-### variation 2
-#### variation 3
-* Description
-  lines...
-  lines...
-- Procedure 1
-- Procedure 2
-- [ ] check 1
-- [*] check 2
-"#;
-        let expected = r#"
-# Sheet1
-## variation 1
-### variation 2
-#### variation 3
-- !!DSC!!Description
-  lines...
-  lines...
-- Procedure 1
-- Procedure 2
-- !!CHK!! check 1
-- !!CHK!! check 2
-"#;
-
-        assert_eq!(expected, Data::custom_filter(input));
     }
 
     #[test]
@@ -362,10 +365,10 @@ mod tests {
         let result = Data::concat(&target, input);
         assert_eq!(String::from("input"), result);
         // Some
-        let target = Some("target".to_string());
+        let data = String::from("target");
+        let target = Some(&data);
         let input = "input";
         let result = Data::concat(&target, input);
         assert_eq!(String::from("target\ninput"), result);
-    }
+    }   
 }
-*/

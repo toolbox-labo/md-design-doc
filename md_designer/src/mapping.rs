@@ -58,3 +58,58 @@ impl Default for Mapping {
         Self { mappings: vec![] }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::constant::AUTO_INCREMENT_KEY;
+
+    #[test]
+    fn test_mapping() {
+        let rule = Rule::marshal(
+            r#"
+doc:
+  blocks:
+    - block:
+      - column: No
+        isNum: true
+      - group: Variation
+        columns:
+        - column: Variation 1
+          md: Heading2
+        - column: Variation 2
+          md: Heading3
+        - column: Variation 3
+          md: Heading4
+        - column: Variation 4
+          md: Heading5
+        - column: Variation 5
+          md: Heading6
+        - column: Variation 6
+          md: Heading7
+        - column: Variation 7
+          md: Heading8
+      - column: Description
+        md: List
+            "#,
+        ).unwrap();
+        let mapping = Mapping::new(&rule).unwrap();
+        let mut map = HashMap::new();
+        map.insert(AUTO_INCREMENT_KEY.clone(), 0);
+        map.insert("Heading2".to_string(), 1);
+        map.insert("Heading3".to_string(), 2);
+        map.insert("Heading4".to_string(), 3);
+        map.insert("Heading5".to_string(), 4);
+        map.insert("Heading6".to_string(), 5);
+        map.insert("Heading7".to_string(), 6);
+        map.insert("Heading8".to_string(), 7);
+        map.insert("List".to_string(), 8);
+        let expected = Mapping {
+            mappings: vec![
+                map,
+            ]
+        };
+        assert_eq!(expected, mapping);
+    }
+}

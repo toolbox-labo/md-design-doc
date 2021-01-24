@@ -3,7 +3,7 @@ use std::rc::Rc;
 use anyhow::Result;
 use yaml_rust::{Yaml, YamlLoader};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct MergeInfo {
     pub title: String,
     pub from: u16,
@@ -20,7 +20,7 @@ impl MergeInfo {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Rule {
     pub doc: Doc,
 }
@@ -53,7 +53,7 @@ impl Rule {
                                     .as_vec()
                                     .unwrap();
                                 group_from = Some(idx);
-                                idx = idx.saturating_add(grp_list.len());
+                                idx = idx.saturating_add(grp_list.len() - 1);
                                 group_to = Some(idx);
                                 (
                                     grp_list.iter().map(|v| v.as_hash().unwrap()).collect(),
@@ -125,7 +125,7 @@ impl Default for Rule {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Doc {
     pub blocks: Vec<Block>,
 }
@@ -136,7 +136,7 @@ impl Default for Doc {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Block {
     pub columns: Vec<Column>,
     pub merge_info: Vec<MergeInfo>,
@@ -151,7 +151,7 @@ impl Default for Block {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Column {
     pub title: String,
     pub auto_increment: bool,
@@ -170,7 +170,116 @@ impl Default for Column {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Group {
     pub title: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_marshal() {
+        let rule = Rule::marshal(
+            r#"
+doc:
+  blocks:
+    - block:
+      - column: No
+        isNum: true
+      - group: Variation
+        columns:
+        - column: Variation 1
+          md: Heading2
+        - column: Variation 2
+          md: Heading3
+        - column: Variation 3
+          md: Heading4
+        - column: Variation 4
+          md: Heading5
+        - column: Variation 5
+          md: Heading6
+        - column: Variation 6
+          md: Heading7
+        - column: Variation 7
+          md: Heading8
+      - column: Description
+        md: List
+            "#,
+        ).unwrap();
+        let group = Rc::new(Group {
+            title: String::from("Variation"),
+        });
+        let expected = Rule {
+            doc: Doc {
+                blocks: vec![
+                    Block {
+                        columns: vec![
+                            Column {
+                                title: String::from("No"),
+                                auto_increment: true,
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Variation 1"),
+                                cmark_tag: String::from("Heading2"),
+                                group: Some(group.clone()),
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Variation 2"),
+                                cmark_tag: String::from("Heading3"),
+                                group: Some(group.clone()),
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Variation 3"),
+                                cmark_tag: String::from("Heading4"),
+                                group: Some(group.clone()),
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Variation 4"),
+                                cmark_tag: String::from("Heading5"),
+                                group: Some(group.clone()),
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Variation 5"),
+                                cmark_tag: String::from("Heading6"),
+                                group: Some(group.clone()),
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Variation 6"),
+                                cmark_tag: String::from("Heading7"),
+                                group: Some(group.clone()),
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Variation 7"),
+                                cmark_tag: String::from("Heading8"),
+                                group: Some(group.clone()),
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Description"),
+                                cmark_tag: String::from("List"),
+                                ..Default::default()
+                            },
+                        ],
+                        merge_info: vec![
+                            MergeInfo {
+                                title: String::from("Variation"),
+                                from: 1,
+                                to: 7,
+                            }
+                        ],
+                    }
+                ]
+            }
+        };
+        assert_eq!(expected, rule);
+    }
 }
