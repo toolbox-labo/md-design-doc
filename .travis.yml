@@ -13,10 +13,10 @@ jobs:
   include:
   - stage: unit tests
     script:
-    - cargo test
+    - cargo test --features excel
   - stage: check rustfmt style && run clippy
     script:
-    - cargo clippy -Z unstable-options -- -D warnings
+    - cargo clippy --features excel -Z unstable-options -- -D warnings
     - cargo fmt --all -- --check
   - stage: coverage sending
     script:
