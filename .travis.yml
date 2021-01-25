@@ -1,0 +1,26 @@
+language: rust
+rust:
+- nightly
+cache:
+  cargo: true
+install:
+- rustup update
+- rustup component add clippy rustfmt
+- cargo install grcov rust-covfix
+before_script:
+- cd md_designer
+jobs:
+  include:
+  - stage: unit tests
+    script:
+    - cargo test
+  - stage: check rustfmt style && run clippy
+    script:
+    - cargo clippy -Z unstable-options -- -D warnings
+    - cargo fmt --all -- --check
+  - stage: coverage sending
+    script:
+    - bash coverage.sh ontravis sendcov
+env:
+  global:
+    secure: zOr7Re70susrc/q7/nVwcorOexfBFBuJx/dztkt0VwXfAxTic3SlK38wMBJ9vOH+OOMuqYp9mjhKjJaBMsTw2wja93dh6KzaEiUsb9RQjBSdZlutWfrlDhkZSLr5dZjRzB2rnaIYKdaKCDEz4TVtoGAeTjuNSiLxxE0l6RFawl+ekhKqCYmbyyUzZdCQPPS0lthcJxhRnLZmeY1ojM5dbdgBubHhQ9ksCPVn+1GlwO8fkW8RlNgeWbtim1EsIMmsozRDGYmyPtWKYjJVBey49iindZnmSzaKJ0ilbQX2HwjYshaD+kauOXgQz/wZd0FwRdiqtvDpzwSkW+SGVYcs59dKJoDXVpiqypTWJ0k+jRGEdeR0Kq40sKmPsjk5yNMQr/Sy5fLDYHWnUAW9VUzZdFIc8lKZwXU/ez3QbCErfYW4RVaKHyrxjkQ9rRbSjTCRXHDILs/nF9E58NP/AV6noPkygCyzHhArvU1/q+DB/rg4q1H6XqTsX5LFjJzbh6hJnq4PHmEmhIVC5XIGe9rnLyD7VPdkwlsUXWYnQSnnSfc7m0vyZ8sqonR/r/d09kIHyUzZWOEhnfssB1IEdlKsTvL60xdDYmUX0E1/v98cuu4TwgHYszOSMZwGuTyCfkg+FCMTROmEQG/QZXHZ/uDTgCoEGLWrV09WiPWl0xEO9ms=
