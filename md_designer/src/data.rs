@@ -1,10 +1,7 @@
 use anyhow::{anyhow, Result};
 use pulldown_cmark::{Event, Options, Parser, Tag};
 
-use crate::{
-    mapping::Mapping,
-    rule::Rule,
-};
+use crate::{mapping::Mapping, rule::Rule};
 
 #[cfg(feature = "excel")]
 use xlsxwriter::*;
@@ -168,36 +165,34 @@ impl Data {
                     });
                     // render the remaining headers
                     let header_merged = !merged_posisitons.is_empty();
-                    b.columns.iter().enumerate().for_each(
-                        |(pos_x, column)| {
-                            let pos_x = pos_x as u16;
-                            // check if pos_x is within merged range
-                            let mut in_merged_range = false;
-                            for merged_pos in merged_posisitons.iter() {
-                                if merged_pos.contain(pos_x) {
-                                    in_merged_range = true;
-                                    break;
-                                }
+                    b.columns.iter().enumerate().for_each(|(pos_x, column)| {
+                        let pos_x = pos_x as u16;
+                        // check if pos_x is within merged range
+                        let mut in_merged_range = false;
+                        for merged_pos in merged_posisitons.iter() {
+                            if merged_pos.contain(pos_x) {
+                                in_merged_range = true;
+                                break;
                             }
-                            if in_merged_range {
-                                s.write_string(block_start_y + 1, pos_x, &column.title, None)
-                                    .unwrap();
-                            } else if header_merged {
-                                s.merge_range(
-                                    block_start_y,
-                                    pos_x,
-                                    block_start_y + 1,
-                                    pos_x,
-                                    &column.title,
-                                    None,
-                                )
+                        }
+                        if in_merged_range {
+                            s.write_string(block_start_y + 1, pos_x, &column.title, None)
                                 .unwrap();
-                            } else {
-                                s.write_string(block_start_y, pos_x, &column.title, None)
-                                    .unwrap();
-                            }
-                        },
-                    );
+                        } else if header_merged {
+                            s.merge_range(
+                                block_start_y,
+                                pos_x,
+                                block_start_y + 1,
+                                pos_x,
+                                &column.title,
+                                None,
+                            )
+                            .unwrap();
+                        } else {
+                            s.write_string(block_start_y, pos_x, &column.title, None)
+                                .unwrap();
+                        }
+                    });
                     if header_merged {
                         block_start_y += 1;
                     }
@@ -218,7 +213,7 @@ impl Data {
                         }
                         last_y = y_offset;
                     }
-                    
+
                     // update block_start_y for the next block
                     block_start_y += (last_y + 1) as u32;
                 }
@@ -313,7 +308,8 @@ doc:
         - column: Description
           md: List
             "#,
-        ).unwrap();
+        )
+        .unwrap();
         let rule_clone = rule.clone();
         let mapping = Mapping::new(&rule).unwrap();
         let data = Data::marshal(
@@ -325,34 +321,30 @@ doc:
 * Test Description
   more lines...
             "#,
-            rule
+            rule,
         )
         .unwrap();
         let expected = Data {
             sheets: vec![Sheet {
                 sheet_name: Some(String::from("Sheet Name")),
-                blocks: vec![
-                    Block {
-                        rows: vec![
-                            Row {
-                                columns: vec![
-                                    String::from("1"),
-                                    String::from("\nTest Variation 1"),
-                                    String::from("\nTest Variation 1-1"),
-                                    String::from("\nTest Variation 1-1-1"),
-                                    String::default(),
-                                    String::default(),
-                                    String::default(),
-                                    String::default(),
-                                    String::from("\nTest Description\nmore lines..."),
-                                ],
-                            }
-                        ]
-                    }
-                ],
+                blocks: vec![Block {
+                    rows: vec![Row {
+                        columns: vec![
+                            String::from("1"),
+                            String::from("\nTest Variation 1"),
+                            String::from("\nTest Variation 1-1"),
+                            String::from("\nTest Variation 1-1-1"),
+                            String::default(),
+                            String::default(),
+                            String::default(),
+                            String::default(),
+                            String::from("\nTest Description\nmore lines..."),
+                        ],
+                    }],
+                }],
             }],
             mapping,
-            rule: rule_clone, 
+            rule: rule_clone,
         };
         assert_eq!(expected, data);
     }
@@ -370,5 +362,5 @@ doc:
         let input = "input";
         let result = Data::concat(&target, input);
         assert_eq!(String::from("target\ninput"), result);
-    }   
+    }
 }

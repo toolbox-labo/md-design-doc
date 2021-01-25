@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::Result;
 use pulldown_cmark::Tag;
 
-use crate::{rule::Rule, utils::cmarktag_stringify, constant::AUTO_INCREMENT_KEY};
+use crate::{constant::AUTO_INCREMENT_KEY, rule::Rule, utils::cmarktag_stringify};
 
 #[derive(Debug, PartialEq)]
 pub struct Mapping {
@@ -93,7 +93,8 @@ doc:
       - column: Description
         md: List
             "#,
-        ).unwrap();
+        )
+        .unwrap();
         let mapping = Mapping::new(&rule).unwrap();
         let mut map = HashMap::new();
         map.insert(AUTO_INCREMENT_KEY.clone(), 0);
@@ -106,9 +107,7 @@ doc:
         map.insert("Heading8".to_string(), 7);
         map.insert("List".to_string(), 8);
         let expected = Mapping {
-            mappings: vec![
-                map,
-            ]
+            mappings: vec![map],
         };
         assert_eq!(expected, mapping);
     }
