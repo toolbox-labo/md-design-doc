@@ -1,4 +1,6 @@
 # md-design-doc
+[![Build Status](https://travis-ci.com/toolbox-labo/md-design-doc.svg?branch=master)](https://travis-ci.com/toolbox-labo/md-design-doc) [![codecov](https://codecov.io/gh/toolbox-labo/md-design-doc/branch/master/graph/badge.svg?token=258Z1OJCOY)](https://codecov.io/gh/toolbox-labo/md-design-doc)
+
 WIP
 
 ## Getting Started
