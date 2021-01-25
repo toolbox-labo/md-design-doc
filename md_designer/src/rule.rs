@@ -27,7 +27,7 @@ pub struct Rule {
 
 impl Rule {
     pub fn marshal(input: &str) -> Result<Self> {
-        let docs = YamlLoader::load_from_str(input).unwrap();
+        let docs = YamlLoader::load_from_str(input)?;
         let doc = &docs[0]["doc"];
         let mut blcs = vec![];
         // TODO: validation
