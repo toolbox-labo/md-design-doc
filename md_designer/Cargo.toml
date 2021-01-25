@@ -14,3 +14,5 @@ clap = "2.33.3"
 anyhow = "1.0.32"
 regex = "1.4.3"
 xlsxwriter = { version = "0.3.2", optional = true }
+yaml-rust = "0.4.5"
+lazy_static = "1.4.0"
