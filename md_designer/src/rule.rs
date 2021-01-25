@@ -207,78 +207,75 @@ doc:
       - column: Description
         md: List
             "#,
-        ).unwrap();
+        )
+        .unwrap();
         let group = Rc::new(Group {
             title: String::from("Variation"),
         });
         let expected = Rule {
             doc: Doc {
-                blocks: vec![
-                    Block {
-                        columns: vec![
-                            Column {
-                                title: String::from("No"),
-                                auto_increment: true,
-                                ..Default::default()
-                            },
-                            Column {
-                                title: String::from("Variation 1"),
-                                cmark_tag: String::from("Heading2"),
-                                group: Some(group.clone()),
-                                ..Default::default()
-                            },
-                            Column {
-                                title: String::from("Variation 2"),
-                                cmark_tag: String::from("Heading3"),
-                                group: Some(group.clone()),
-                                ..Default::default()
-                            },
-                            Column {
-                                title: String::from("Variation 3"),
-                                cmark_tag: String::from("Heading4"),
-                                group: Some(group.clone()),
-                                ..Default::default()
-                            },
-                            Column {
-                                title: String::from("Variation 4"),
-                                cmark_tag: String::from("Heading5"),
-                                group: Some(group.clone()),
-                                ..Default::default()
-                            },
-                            Column {
-                                title: String::from("Variation 5"),
-                                cmark_tag: String::from("Heading6"),
-                                group: Some(group.clone()),
-                                ..Default::default()
-                            },
-                            Column {
-                                title: String::from("Variation 6"),
-                                cmark_tag: String::from("Heading7"),
-                                group: Some(group.clone()),
-                                ..Default::default()
-                            },
-                            Column {
-                                title: String::from("Variation 7"),
-                                cmark_tag: String::from("Heading8"),
-                                group: Some(group.clone()),
-                                ..Default::default()
-                            },
-                            Column {
-                                title: String::from("Description"),
-                                cmark_tag: String::from("List"),
-                                ..Default::default()
-                            },
-                        ],
-                        merge_info: vec![
-                            MergeInfo {
-                                title: String::from("Variation"),
-                                from: 1,
-                                to: 7,
-                            }
-                        ],
-                    }
-                ]
-            }
+                blocks: vec![Block {
+                    columns: vec![
+                        Column {
+                            title: String::from("No"),
+                            auto_increment: true,
+                            ..Default::default()
+                        },
+                        Column {
+                            title: String::from("Variation 1"),
+                            cmark_tag: String::from("Heading2"),
+                            group: Some(group.clone()),
+                            ..Default::default()
+                        },
+                        Column {
+                            title: String::from("Variation 2"),
+                            cmark_tag: String::from("Heading3"),
+                            group: Some(group.clone()),
+                            ..Default::default()
+                        },
+                        Column {
+                            title: String::from("Variation 3"),
+                            cmark_tag: String::from("Heading4"),
+                            group: Some(group.clone()),
+                            ..Default::default()
+                        },
+                        Column {
+                            title: String::from("Variation 4"),
+                            cmark_tag: String::from("Heading5"),
+                            group: Some(group.clone()),
+                            ..Default::default()
+                        },
+                        Column {
+                            title: String::from("Variation 5"),
+                            cmark_tag: String::from("Heading6"),
+                            group: Some(group.clone()),
+                            ..Default::default()
+                        },
+                        Column {
+                            title: String::from("Variation 6"),
+                            cmark_tag: String::from("Heading7"),
+                            group: Some(group.clone()),
+                            ..Default::default()
+                        },
+                        Column {
+                            title: String::from("Variation 7"),
+                            cmark_tag: String::from("Heading8"),
+                            group: Some(group.clone()),
+                            ..Default::default()
+                        },
+                        Column {
+                            title: String::from("Description"),
+                            cmark_tag: String::from("List"),
+                            ..Default::default()
+                        },
+                    ],
+                    merge_info: vec![MergeInfo {
+                        title: String::from("Variation"),
+                        from: 1,
+                        to: 7,
+                    }],
+                }],
+            },
         };
         assert_eq!(expected, rule);
     }
