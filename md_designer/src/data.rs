@@ -44,7 +44,7 @@ impl Data {
         let input = input.trim_start();
 
         // convert the rule into mapping
-        let mapping = Mapping::new(&rule).unwrap();
+        let mapping = Mapping::new(&rule)?;
 
         // check is first line is Heading(1)
         // (sheet name is required)
@@ -142,16 +142,16 @@ impl Data {
         let (_start_x, _start_y) = (0, 0);
         let (block_start_x, mut block_start_y) = (0, 0);
         let workbook = Workbook::new("test.xlsx");
-        self.sheets.iter().for_each(|sheet| {
-            let mut s = workbook.add_worksheet(sheet.sheet_name.as_deref()).unwrap();
+        for sheet in self.sheets.iter() {
+            let mut s = workbook.add_worksheet(sheet.sheet_name.as_deref())?;
             let wrap_format = workbook.add_format().set_text_wrap();
-            sheet.blocks.iter().enumerate().for_each(|(idx, block)| {
+            for (idx, block) in sheet.blocks.iter().enumerate() {
                 let mut merged_posisitons: Vec<CellRange> = vec![];
                 if let Some(b) = self.rule.doc.blocks.get(idx) {
                     // Header
                     // render the merged cells first
                     // and store the merged column indexes
-                    b.merge_info.iter().for_each(|merge_info| {
+                    for merge_info in b.merge_info.iter() {
                         s.merge_range(
                             block_start_y,
                             merge_info.from,
@@ -159,13 +159,12 @@ impl Data {
                             merge_info.to,
                             &merge_info.title,
                             None,
-                        )
-                        .unwrap();
+                        )?;
                         merged_posisitons.push(CellRange::new(merge_info.from, merge_info.to));
-                    });
+                    }
                     // render the remaining headers
                     let header_merged = !merged_posisitons.is_empty();
-                    b.columns.iter().enumerate().for_each(|(pos_x, column)| {
+                    for (pos_x, column) in b.columns.iter().enumerate() {
                         let pos_x = pos_x as u16;
                         // check if pos_x is within merged range
                         let mut in_merged_range = false;
@@ -176,8 +175,7 @@ impl Data {
                             }
                         }
                         if in_merged_range {
-                            s.write_string(block_start_y + 1, pos_x, &column.title, None)
-                                .unwrap();
+                            s.write_string(block_start_y + 1, pos_x, &column.title, None)?;
                         } else if header_merged {
                             s.merge_range(
                                 block_start_y,
@@ -186,13 +184,11 @@ impl Data {
                                 pos_x,
                                 &column.title,
                                 None,
-                            )
-                            .unwrap();
+                            )?;
                         } else {
-                            s.write_string(block_start_y, pos_x, &column.title, None)
-                                .unwrap();
+                            s.write_string(block_start_y, pos_x, &column.title, None)?;
                         }
-                    });
+                    }
                     if header_merged {
                         block_start_y += 1;
                     }
@@ -208,8 +204,7 @@ impl Data {
                                 block_start_x + x_offset as u16,
                                 &column,
                                 Some(&wrap_format),
-                            )
-                            .unwrap();
+                            )?;
                         }
                         last_y = y_offset;
                     }
@@ -217,8 +212,8 @@ impl Data {
                     // update block_start_y for the next block
                     block_start_y += (last_y + 1) as u32;
                 }
-            });
-        });
+            }
+        }
         Ok(())
     }
 
