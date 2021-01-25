@@ -3,3 +3,9 @@
 md_designer/target/
 
 md_designer/test.xlsx
+
+md_designer/ccov.zip
+
+md_designer/lcov.info
+
+md_designer/report/
