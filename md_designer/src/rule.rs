@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use yaml_rust::{Yaml, YamlLoader};
 
 #[derive(Debug, PartialEq, Clone)]
@@ -27,19 +27,19 @@ pub struct Rule {
 
 impl Rule {
     pub fn marshal(input: &str) -> Result<Self> {
-        let docs = YamlLoader::load_from_str(input).unwrap();
+        let docs = YamlLoader::load_from_str(input)?;
         let doc = &docs[0]["doc"];
         let mut blcs = vec![];
         // TODO: validation
 
         if let Some(blocks) = doc["blocks"].as_vec() {
-            blocks.iter().for_each(|v| {
+            for v in blocks.iter() {
                 let mut blc = Block::default();
                 if let Some(block) = v["block"].as_vec() {
                     let mut idx: usize = 0;
                     let mut group_from: Option<usize> = None;
                     let mut group_to: Option<usize> = None;
-                    block.iter().for_each(|w| {
+                    for w in block.iter() {
                         if let Some(col_or_grp) = w.as_hash() {
                             let (col_or_grp_list, group) = if col_or_grp
                                 .contains_key(&Yaml::String("column".to_string()))
@@ -49,9 +49,9 @@ impl Rule {
                             } else if col_or_grp.contains_key(&Yaml::String("group".to_string())) {
                                 let grp_list = col_or_grp
                                     .get(&Yaml::String("columns".to_string()))
-                                    .unwrap()
+                                    .with_context(|| "columns key is required in group")?
                                     .as_vec()
-                                    .unwrap();
+                                    .with_context(|| "columns must be array")?;
                                 group_from = Some(idx);
                                 idx = idx.saturating_add(grp_list.len() - 1);
                                 group_to = Some(idx);
@@ -61,8 +61,10 @@ impl Rule {
                                         title: String::from(
                                             col_or_grp
                                                 .get(&Yaml::String("group".to_string()))
+                                                // It is clear that group key exists
                                                 .unwrap()
                                                 .as_str()
+                                                // allows group value to be empty
                                                 .unwrap_or(""),
                                         ),
                                     })),
@@ -71,21 +73,25 @@ impl Rule {
                                 idx += 1;
                                 (vec![], None)
                             };
-                            col_or_grp_list.iter().for_each(|clm| {
+                            for clm in col_or_grp_list.iter() {
                                 blc.columns.push(Column {
                                     title: String::from(
                                         clm.get(&Yaml::String("column".to_string()))
-                                            .unwrap()
+                                            .with_context(|| "column key is required")?
                                             .as_str()
+                                            // allows column value to be empty
                                             .unwrap_or(""),
                                     ),
                                     auto_increment: clm
                                         .get(&Yaml::String("isNum".to_string()))
+                                        // allows key isNum to be undefined
                                         .unwrap_or(&Yaml::Boolean(false))
                                         .as_bool()
                                         .unwrap_or(false),
                                     cmark_tag: String::from(
                                         clm.get(&Yaml::String("md".to_string()))
+                                            // allows key md to be undefined
+                                            // this is for auto incremented column
                                             .unwrap_or(&Yaml::String("".to_string()))
                                             .as_str()
                                             .unwrap(),
@@ -96,7 +102,7 @@ impl Rule {
                                         None
                                     },
                                 });
-                            });
+                            }
                             if let Some(g) = &group {
                                 blc.merge_info.push(MergeInfo::new(
                                     g.title.as_str(),
@@ -105,10 +111,10 @@ impl Rule {
                                 ));
                             }
                         }
-                    });
+                    }
                 }
                 blcs.push(blc);
-            });
+            }
         }
 
         Ok(Rule {
@@ -207,78 +213,75 @@ doc:
       - column: Description
         md: List
             "#,
-        ).unwrap();
+        )
+        .unwrap();
         let group = Rc::new(Group {
             title: String::from("Variation"),
         });
         let expected = Rule {
             doc: Doc {
-                blocks: vec![
-                    Block {
-                        columns: vec![
-                            Column {
-                                title: String::from("No"),
-                                auto_increment: true,
-                                ..Default::default()
-                            },
-                            Column {
-                                title: String::from("Variation 1"),
-                                cmark_tag: String::from("Heading2"),
-                                group: Some(group.clone()),
-                                ..Default::default()
-                            },
-                            Column {
-                                title: String::from("Variation 2"),
-                                cmark_tag: String::from("Heading3"),
-                                group: Some(group.clone()),
-                                ..Default::default()
-                            },
-                            Column {
-                                title: String::from("Variation 3"),
-                                cmark_tag: String::from("Heading4"),
-                                group: Some(group.clone()),
-                                ..Default::default()
-                            },
-                            Column {
-                                title: String::from("Variation 4"),
-                                cmark_tag: String::from("Heading5"),
-                                group: Some(group.clone()),
-                                ..Default::default()
-                            },
-                            Column {
-                                title: String::from("Variation 5"),
-                                cmark_tag: String::from("Heading6"),
-                                group: Some(group.clone()),
-                                ..Default::default()
-                            },
-                            Column {
-                                title: String::from("Variation 6"),
-                                cmark_tag: String::from("Heading7"),
-                                group: Some(group.clone()),
-                                ..Default::default()
-                            },
-                            Column {
-                                title: String::from("Variation 7"),
-                                cmark_tag: String::from("Heading8"),
-                                group: Some(group.clone()),
-                                ..Default::default()
-                            },
-                            Column {
-                                title: String::from("Description"),
-                                cmark_tag: String::from("List"),
-                                ..Default::default()
-                            },
-                        ],
-                        merge_info: vec![
-                            MergeInfo {
-                                title: String::from("Variation"),
-                                from: 1,
-                                to: 7,
-                            }
-                        ],
-                    }
-                ]
-            }
+                blocks: vec![Block {
+                    columns: vec![
+                        Column {
+                            title: String::from("No"),
+                            auto_increment: true,
+                            ..Default::default()
+                        },
+                        Column {
+                            title: String::from("Variation 1"),
+                            cmark_tag: String::from("Heading2"),
+                            group: Some(group.clone()),
+                            ..Default::default()
+                        },
+                        Column {
+                            title: String::from("Variation 2"),
+                            cmark_tag: String::from("Heading3"),
+                            group: Some(group.clone()),
+                            ..Default::default()
+                        },
+                        Column {
+                            title: String::from("Variation 3"),
+                            cmark_tag: String::from("Heading4"),
+                            group: Some(group.clone()),
+                            ..Default::default()
+                        },
+                        Column {
+                            title: String::from("Variation 4"),
+                            cmark_tag: String::from("Heading5"),
+                            group: Some(group.clone()),
+                            ..Default::default()
+                        },
+                        Column {
+                            title: String::from("Variation 5"),
+                            cmark_tag: String::from("Heading6"),
+                            group: Some(group.clone()),
+                            ..Default::default()
+                        },
+                        Column {
+                            title: String::from("Variation 6"),
+                            cmark_tag: String::from("Heading7"),
+                            group: Some(group.clone()),
+                            ..Default::default()
+                        },
+                        Column {
+                            title: String::from("Variation 7"),
+                            cmark_tag: String::from("Heading8"),
+                            group: Some(group.clone()),
+                            ..Default::default()
+                        },
+                        Column {
+                            title: String::from("Description"),
+                            cmark_tag: String::from("List"),
+                            ..Default::default()
+                        },
+                    ],
+                    merge_info: vec![MergeInfo {
+                        title: String::from("Variation"),
+                        from: 1,
+                        to: 7,
+                    }],
+                }],
+            },
         };
         assert_eq!(expected, rule);
     }

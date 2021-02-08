@@ -1,10 +1,7 @@
 use anyhow::{anyhow, Result};
 use pulldown_cmark::{Event, Options, Parser, Tag};
 
-use crate::{
-    mapping::Mapping,
-    rule::Rule,
-};
+use crate::{mapping::Mapping, rule::Rule};
 
 #[cfg(feature = "excel")]
 use xlsxwriter::*;
@@ -47,7 +44,7 @@ impl Data {
         let input = input.trim_start();
 
         // convert the rule into mapping
-        let mapping = Mapping::new(&rule).unwrap();
+        let mapping = Mapping::new(&rule)?;
 
         // check is first line is Heading(1)
         // (sheet name is required)
@@ -145,16 +142,16 @@ impl Data {
         let (_start_x, _start_y) = (0, 0);
         let (block_start_x, mut block_start_y) = (0, 0);
         let workbook = Workbook::new("test.xlsx");
-        self.sheets.iter().for_each(|sheet| {
-            let mut s = workbook.add_worksheet(sheet.sheet_name.as_deref()).unwrap();
+        for sheet in self.sheets.iter() {
+            let mut s = workbook.add_worksheet(sheet.sheet_name.as_deref())?;
             let wrap_format = workbook.add_format().set_text_wrap();
-            sheet.blocks.iter().enumerate().for_each(|(idx, block)| {
+            for (idx, block) in sheet.blocks.iter().enumerate() {
                 let mut merged_posisitons: Vec<CellRange> = vec![];
                 if let Some(b) = self.rule.doc.blocks.get(idx) {
                     // Header
                     // render the merged cells first
                     // and store the merged column indexes
-                    b.merge_info.iter().for_each(|merge_info| {
+                    for merge_info in b.merge_info.iter() {
                         s.merge_range(
                             block_start_y,
                             merge_info.from,
@@ -162,42 +159,36 @@ impl Data {
                             merge_info.to,
                             &merge_info.title,
                             None,
-                        )
-                        .unwrap();
+                        )?;
                         merged_posisitons.push(CellRange::new(merge_info.from, merge_info.to));
-                    });
+                    }
                     // render the remaining headers
                     let header_merged = !merged_posisitons.is_empty();
-                    b.columns.iter().enumerate().for_each(
-                        |(pos_x, column)| {
-                            let pos_x = pos_x as u16;
-                            // check if pos_x is within merged range
-                            let mut in_merged_range = false;
-                            for merged_pos in merged_posisitons.iter() {
-                                if merged_pos.contain(pos_x) {
-                                    in_merged_range = true;
-                                    break;
-                                }
+                    for (pos_x, column) in b.columns.iter().enumerate() {
+                        let pos_x = pos_x as u16;
+                        // check if pos_x is within merged range
+                        let mut in_merged_range = false;
+                        for merged_pos in merged_posisitons.iter() {
+                            if merged_pos.contain(pos_x) {
+                                in_merged_range = true;
+                                break;
                             }
-                            if in_merged_range {
-                                s.write_string(block_start_y + 1, pos_x, &column.title, None)
-                                    .unwrap();
-                            } else if header_merged {
-                                s.merge_range(
-                                    block_start_y,
-                                    pos_x,
-                                    block_start_y + 1,
-                                    pos_x,
-                                    &column.title,
-                                    None,
-                                )
-                                .unwrap();
-                            } else {
-                                s.write_string(block_start_y, pos_x, &column.title, None)
-                                    .unwrap();
-                            }
-                        },
-                    );
+                        }
+                        if in_merged_range {
+                            s.write_string(block_start_y + 1, pos_x, &column.title, None)?;
+                        } else if header_merged {
+                            s.merge_range(
+                                block_start_y,
+                                pos_x,
+                                block_start_y + 1,
+                                pos_x,
+                                &column.title,
+                                None,
+                            )?;
+                        } else {
+                            s.write_string(block_start_y, pos_x, &column.title, None)?;
+                        }
+                    }
                     if header_merged {
                         block_start_y += 1;
                     }
@@ -213,17 +204,16 @@ impl Data {
                                 block_start_x + x_offset as u16,
                                 &column,
                                 Some(&wrap_format),
-                            )
-                            .unwrap();
+                            )?;
                         }
                         last_y = y_offset;
                     }
-                    
+
                     // update block_start_y for the next block
                     block_start_y += (last_y + 1) as u32;
                 }
-            });
-        });
+            }
+        }
         Ok(())
     }
 
@@ -313,7 +303,8 @@ doc:
         - column: Description
           md: List
             "#,
-        ).unwrap();
+        )
+        .unwrap();
         let rule_clone = rule.clone();
         let mapping = Mapping::new(&rule).unwrap();
         let data = Data::marshal(
@@ -325,34 +316,30 @@ doc:
 * Test Description
   more lines...
             "#,
-            rule
+            rule,
         )
         .unwrap();
         let expected = Data {
             sheets: vec![Sheet {
                 sheet_name: Some(String::from("Sheet Name")),
-                blocks: vec![
-                    Block {
-                        rows: vec![
-                            Row {
-                                columns: vec![
-                                    String::from("1"),
-                                    String::from("\nTest Variation 1"),
-                                    String::from("\nTest Variation 1-1"),
-                                    String::from("\nTest Variation 1-1-1"),
-                                    String::default(),
-                                    String::default(),
-                                    String::default(),
-                                    String::default(),
-                                    String::from("\nTest Description\nmore lines..."),
-                                ],
-                            }
-                        ]
-                    }
-                ],
+                blocks: vec![Block {
+                    rows: vec![Row {
+                        columns: vec![
+                            String::from("1"),
+                            String::from("\nTest Variation 1"),
+                            String::from("\nTest Variation 1-1"),
+                            String::from("\nTest Variation 1-1-1"),
+                            String::default(),
+                            String::default(),
+                            String::default(),
+                            String::default(),
+                            String::from("\nTest Description\nmore lines..."),
+                        ],
+                    }],
+                }],
             }],
             mapping,
-            rule: rule_clone, 
+            rule: rule_clone,
         };
         assert_eq!(expected, data);
     }
@@ -370,5 +357,5 @@ doc:
         let input = "input";
         let result = Data::concat(&target, input);
         assert_eq!(String::from("target\ninput"), result);
-    }   
+    }
 }
