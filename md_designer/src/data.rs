@@ -137,11 +137,11 @@ impl Data {
     }
 
     #[cfg(feature = "excel")]
-    pub fn export_excel(&self) -> Result<()> {
+    pub fn export_excel(&self, file_name: &str) -> Result<()> {
         // TODO: customizable start positions
         let (_start_x, _start_y) = (0, 0);
         let (block_start_x, mut block_start_y) = (0, 0);
-        let workbook = Workbook::new("test.xlsx");
+        let workbook = Workbook::new(&format!("{}.xlsx", file_name));
         for sheet in self.sheets.iter() {
             let mut s = workbook.add_worksheet(sheet.sheet_name.as_deref())?;
             let wrap_format = workbook.add_format().set_text_wrap();
