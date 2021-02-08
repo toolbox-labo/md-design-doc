@@ -22,5 +22,9 @@ if [ $# = 0 ] || [ "$1" != "ontravis" ]; then
 fi
 
 if [ $# -gt 1 ] && [ "$2" = "sendcov" ]; then
-    bash <(curl -s https://codecov.io/bash) -f lcov.info -t "${CODECOV_TOKEN}"
+    if [ -z "${CODECOV_TOKEN+x}" ]; then
+        echo "environment variable CODECOV_TOKEN is empty, skipping sending coverage to codecov..."
+    else
+        bash <(curl -s https://codecov.io/bash) -f lcov.info -t "${CODECOV_TOKEN}"
+    fi
 fi
