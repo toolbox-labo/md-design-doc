@@ -1,8 +1,9 @@
 #![warn(rust_2018_idioms)]
 
 use std::fs;
+use std::path::Path;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{crate_authors, crate_description, crate_name, crate_version, App as ClapApp, Arg};
 
 use md_designer::app::App;
@@ -26,12 +27,20 @@ fn main() -> Result<()> {
         )
         .get_matches();
 
-    let input_text = fs::read_to_string(clap.value_of("path").unwrap())?;
+    let path = Path::new(clap.value_of("path").unwrap());
+    let input_text = fs::read_to_string(&path)?;
     let cfg_text = fs::read_to_string(clap.value_of("conf_path").unwrap())?;
 
     let rule = Rule::marshal(&cfg_text)?;
 
-    let app = App::new(&input_text, rule)?;
+    let app = App::new(
+        path.file_stem()
+            .with_context(|| "Input file path is malformed")?
+            .to_str()
+            .unwrap(),
+        &input_text,
+        rule,
+    )?;
 
     app.export_excel()?;
 
