@@ -26,18 +26,8 @@ fn main() -> Result<()> {
         )
         .get_matches();
 
-    // check user input
-    let input_text = if let Some(path) = clap.value_of("path") {
-        fs::read_to_string(path)?
-    } else {
-        "".to_string()
-    };
-
-    let cfg_text = if let Some(path) = clap.value_of("conf_path") {
-        fs::read_to_string(path)?
-    } else {
-        "".to_string()
-    };
+    let input_text = fs::read_to_string(clap.value_of("path").unwrap())?;
+    let cfg_text = fs::read_to_string(clap.value_of("conf_path").unwrap())?;
 
     let rule = Rule::marshal(&cfg_text)?;
 
