@@ -18,8 +18,8 @@ jobs:
     before_script:
       - rustup component add rustfmt --toolchain stable-x86_64-unknown-linux-gnu
     script:
-      - cargo test
-      - cargo clippy -Z unstable-options -- -D warnings
+      - cargo test --features excel
+      - cargo clippy --features excel -Z unstable-options -- -D warnings
       - cargo +stable fmt --all -- --check
       - bash coverage.sh ontravis sendcov
 env:
