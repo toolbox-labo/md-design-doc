@@ -21,3 +21,15 @@ impl App {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_export_excel() {
+        let file_name = "unit_test";
+        let app = App::new(file_name, "# test", Rule::default()).unwrap();
+        assert!(app.export_excel().is_ok());
+    }
+}

@@ -66,6 +66,18 @@ mod tests {
     use crate::constant::AUTO_INCREMENT_KEY;
 
     #[test]
+    fn test_auto_increment_idx_empty() {
+        let mapping = Mapping::default();
+        assert!(mapping.get_auto_increment_idx(0).is_none());
+    }
+
+    #[test]
+    fn test_get_size_empty() {
+        let mapping = Mapping::default();
+        assert!(mapping.get_size(0).is_none());
+    }
+
+    #[test]
     fn test_mapping() {
         let rule = Rule::marshal(
             r#"
