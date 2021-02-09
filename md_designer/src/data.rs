@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use pulldown_cmark::{Event, Options, Parser, Tag};
+use pulldown_cmark::{CowStr, Event, Options, Parser, Tag};
 
 use crate::{mapping::Mapping, rule::Rule};
 
@@ -58,17 +58,24 @@ impl Data {
         options.insert(Options::ENABLE_TASKLISTS);
         //let input = Data::custom_filter(input);
         let parser = Parser::new_ext(&input, options);
-        let parser = parser.map(|event| match event {
+        let mut parser_filtered = vec![];
+        // pulldown_cmark does not support Heading(7) and Heading(8)
+        // so they should be handled by hand
+        parser.for_each(|event| match event {
             Event::Text(ref text) => {
-                if text.starts_with("####### ") {
-                    return Event::Start(Tag::Heading(7));
-                } else if text.starts_with("######## ") {
-                    return Event::Start(Tag::Heading(8));
+                if let Some(content) = text.strip_prefix("####### ") {
+                    parser_filtered.push(Event::Start(Tag::Heading(7)));
+                    parser_filtered.push(Event::Text(CowStr::from(content.to_string())));
+                } else if let Some(content) = text.strip_prefix("######## ") {
+                    parser_filtered.push(Event::Start(Tag::Heading(8)));
+                    parser_filtered.push(Event::Text(CowStr::from(content.to_string())));
                 } else {
-                    event
+                    parser_filtered.push(event);
                 }
             }
-            _ => event,
+            _ => {
+                parser_filtered.push(event);
+            }
         });
 
         let current_block: usize = 0;
@@ -80,8 +87,7 @@ impl Data {
         let mut is_sheet_name = false;
         let mut current_row = 1;
 
-        parser.for_each(|event| {
-            // is last line soft break
+        parser_filtered.iter().for_each(|event| {
             // if true, next text data is append to current column
             match event {
                 Event::Start(tag) => {
@@ -276,8 +282,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_marshal() {
-        let rule = Rule::marshal(
+    fn test_cell_range_contain() {
+        let cell_range = CellRange::new(0, 10);
+        assert!(cell_range.contain(0));
+        assert!(cell_range.contain(10));
+        assert!(cell_range.contain(5));
+        assert!(!cell_range.contain(11));
+    }
+
+    #[test]
+    fn test_default_data() {
+        let data = Data::default();
+        let expected = Data {
+            sheets: vec![],
+            rule: Rule::default(),
+            mapping: Mapping::default(),
+        };
+        assert_eq!(expected, data);
+    }
+
+    fn get_default_rule() -> Rule {
+        Rule::marshal(
             r#"
 doc:
   blocks:
@@ -304,7 +329,28 @@ doc:
           md: List
             "#,
         )
-        .unwrap();
+        .unwrap()
+    }
+
+    #[test]
+    fn test_marshal_error() {
+        let rule = get_default_rule();
+        let data = Data::marshal(
+            r#"
+## Test Variation 1
+### Test Variation 1-1
+#### Test Variation 1-1-1
+* Test Description
+  more lines...
+            "#,
+            rule,
+        );
+        assert!(data.is_err());
+    }
+
+    #[test]
+    fn test_marshal() {
+        let rule = get_default_rule();
         let rule_clone = rule.clone();
         let mapping = Mapping::new(&rule).unwrap();
         let data = Data::marshal(
@@ -313,6 +359,19 @@ doc:
 ## Test Variation 1
 ### Test Variation 1-1
 #### Test Variation 1-1-1
+##### Test Variation 1-1-1-1
+###### Test Variation 1-1-1-1-1
+####### Test Variation 1-1-1-1-1-1
+######## Test Variation 1-1-1-1-1-1-1
+* Test Description
+  more lines...
+## Test Variation 2
+### Test Variation 2-1
+#### Test Variation 2-1-1
+##### Test Variation 2-1-1-1
+* Test Description
+  more lines...
+##### Test Variation 2-1-1-2
 * Test Description
   more lines...
             "#,
@@ -323,25 +382,86 @@ doc:
             sheets: vec![Sheet {
                 sheet_name: Some(String::from("Sheet Name")),
                 blocks: vec![Block {
-                    rows: vec![Row {
-                        columns: vec![
-                            String::from("1"),
-                            String::from("\nTest Variation 1"),
-                            String::from("\nTest Variation 1-1"),
-                            String::from("\nTest Variation 1-1-1"),
-                            String::default(),
-                            String::default(),
-                            String::default(),
-                            String::default(),
-                            String::from("\nTest Description\nmore lines..."),
-                        ],
-                    }],
+                    rows: vec![
+                        Row {
+                            columns: vec![
+                                String::from("1"),
+                                String::from("\nTest Variation 1"),
+                                String::from("\nTest Variation 1-1"),
+                                String::from("\nTest Variation 1-1-1"),
+                                String::from("\nTest Variation 1-1-1-1"),
+                                String::from("\nTest Variation 1-1-1-1-1"),
+                                String::from("\nTest Variation 1-1-1-1-1-1"),
+                                String::from("\nTest Variation 1-1-1-1-1-1-1"),
+                                String::from("\nTest Description\nmore lines..."),
+                            ],
+                        },
+                        Row {
+                            columns: vec![
+                                String::from("2"),
+                                String::from("\nTest Variation 2"),
+                                String::from("\nTest Variation 2-1"),
+                                String::from("\nTest Variation 2-1-1"),
+                                String::from("\nTest Variation 2-1-1-1"),
+                                String::default(),
+                                String::default(),
+                                String::default(),
+                                String::from("\nTest Description\nmore lines..."),
+                            ],
+                        },
+                        Row {
+                            columns: vec![
+                                String::from("3"),
+                                String::default(),
+                                String::default(),
+                                String::default(),
+                                String::from("\nTest Variation 2-1-1-2"),
+                                String::default(),
+                                String::default(),
+                                String::default(),
+                                String::from("\nTest Description\nmore lines..."),
+                            ],
+                        },
+                    ],
                 }],
             }],
             mapping,
             rule: rule_clone,
         };
         assert_eq!(expected, data);
+    }
+
+    #[test]
+    fn test_export_excel() {
+        let rule = get_default_rule();
+        let data = Data::marshal(
+            r#"
+# Sheet Name
+## Test Variation 1
+### Test Variation 1-1
+#### Test Variation 1-1-1
+##### Test Variation 1-1-1-1
+###### Test Variation 1-1-1-1-1
+####### Test Variation 1-1-1-1-1-1
+######## Test Variation 1-1-1-1-1-1-1
+* Test Description
+  more lines...
+## Test Variation 2
+### Test Variation 2-1
+#### Test Variation 2-1-1
+##### Test Variation 2-1-1-1
+* Test Description
+  more lines...
+##### Test Variation 2-1-1-2
+* Test Description
+  more lines...
+            "#,
+            rule,
+        )
+        .unwrap();
+        let file_name = "unit_test";
+        assert!(data.export_excel("unit_test").is_ok());
+        std::fs::remove_file(format!("{}.xlsx", file_name)).unwrap();
     }
 
     #[test]

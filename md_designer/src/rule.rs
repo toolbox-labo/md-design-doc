@@ -70,8 +70,7 @@ impl Rule {
                                     })),
                                 )
                             } else {
-                                idx += 1;
-                                (vec![], None)
+                                return Err(anyhow::anyhow!("All values of 'block' key must have either keys 'column' or 'group'"));
                             };
                             for clm in col_or_grp_list.iter() {
                                 blc.columns.push(Column {
@@ -184,6 +183,28 @@ pub struct Group {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_default_rule() {
+        let rule = Rule::default();
+        let expected = Rule {
+            doc: Doc::default(),
+        };
+        assert_eq!(expected, rule);
+    }
+
+    #[test]
+    fn test_marshal_invalid_key() {
+        let rule = Rule::marshal(
+            r#"
+doc:
+  blocks:
+    - block:
+      - invalid_key: wrong!!
+            "#,
+        );
+        assert!(rule.is_err());
+    }
 
     #[test]
     fn test_marshal() {
