@@ -39,7 +39,7 @@ impl Rule {
                     let mut idx: usize = 0;
                     let mut group_from: Option<usize> = None;
                     let mut group_to: Option<usize> = None;
-                    for w in block.iter() {
+                    for (i, w) in block.iter().enumerate() {
                         if let Some(col_or_grp) = w.as_hash() {
                             let (col_or_grp_list, group) = if col_or_grp
                                 .contains_key(&Yaml::String("column".to_string()))
@@ -100,6 +100,7 @@ impl Rule {
                                     } else {
                                         None
                                     },
+                                    is_last: i == block.len().saturating_sub(1),
                                 });
                             }
                             if let Some(g) = &group {
@@ -162,6 +163,7 @@ pub struct Column {
     pub auto_increment: bool,
     pub cmark_tag: String,
     pub group: Option<Rc<Group>>,
+    pub is_last: bool,
 }
 
 impl Default for Column {
@@ -171,6 +173,7 @@ impl Default for Column {
             auto_increment: false,
             cmark_tag: String::default(),
             group: None,
+            is_last: false,
         }
     }
 }
@@ -293,6 +296,7 @@ doc:
                         Column {
                             title: String::from("Description"),
                             cmark_tag: String::from("List"),
+                            is_last: true,
                             ..Default::default()
                         },
                     ],
