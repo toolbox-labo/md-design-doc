@@ -63,11 +63,9 @@ impl Mapping {
     }
 
     pub fn is_last_key(&self, block_idx: usize, tag: &Tag<'_>) -> bool {
-        if let Some(last_key) = self.last_keys.get(block_idx) {
-            if let Some(k) = &last_key {
-                if let Some(tag_str) = cmarktag_stringify(tag) {
-                    return k == &tag_str;
-                }
+        if let Some(Some(k)) = self.last_keys.get(block_idx) {
+            if let Some(tag_str) = cmarktag_stringify(tag) {
+                return k == &tag_str;
             }
         }
         false
