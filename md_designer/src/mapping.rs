@@ -8,23 +8,33 @@ use crate::{constant::AUTO_INCREMENT_KEY, rule::Rule, utils::cmarktag_stringify}
 #[derive(Debug, PartialEq)]
 pub struct Mapping {
     pub mappings: Vec<HashMap<String, usize>>,
+    last_keys: Vec<Option<String>>,
 }
 
 impl Mapping {
     pub fn new(rule: &Rule) -> Result<Self> {
         let mut mappings = vec![];
+        let mut last_keys = vec![];
         rule.doc.blocks.iter().for_each(|block| {
             let mut data = HashMap::new();
+            let mut last_key = None;
             block.columns.iter().enumerate().for_each(|(idx, column)| {
                 if column.auto_increment {
                     data.insert(AUTO_INCREMENT_KEY.clone(), idx);
                 } else {
                     data.insert(column.cmark_tag.clone(), idx);
                 }
+                if column.is_last {
+                    last_key = Some(column.cmark_tag.clone());
+                }
             });
             mappings.push(data);
+            last_keys.push(last_key);
         });
-        Ok(Mapping { mappings })
+        Ok(Mapping {
+            mappings,
+            last_keys,
+        })
     }
 }
 
@@ -51,11 +61,25 @@ impl Mapping {
         }
         None
     }
+
+    pub fn is_last_key(&self, block_idx: usize, tag: &Tag<'_>) -> bool {
+        if let Some(last_key) = self.last_keys.get(block_idx) {
+            if let Some(k) = &last_key {
+                if let Some(tag_str) = cmarktag_stringify(tag) {
+                    return k == &tag_str;
+                }
+            }
+        }
+        false
+    }
 }
 
 impl Default for Mapping {
     fn default() -> Self {
-        Self { mappings: vec![] }
+        Self {
+            mappings: vec![],
+            last_keys: vec![],
+        }
     }
 }
 
@@ -120,7 +144,10 @@ doc:
         map.insert("List".to_string(), 8);
         let expected = Mapping {
             mappings: vec![map],
+            last_keys: vec![Some(String::from("List"))],
         };
         assert_eq!(expected, mapping);
+        assert!(!mapping.is_last_key(0, &Tag::Heading(8)));
+        assert!(mapping.is_last_key(0, &Tag::List(None)));
     }
 }

@@ -83,19 +83,29 @@ impl Data {
         let mut sheet = Sheet::default();
         let mut block = Block::default();
         let mut row = Row::new(current_block, &mapping);
-        let mut last_is_list = false;
+        let mut start_new_line = false;
         let mut is_sheet_name = false;
         let mut current_row = 1;
+        let mut previous_idx: usize = 0;
 
         parser_filtered.iter().for_each(|event| {
             // if true, next text data is append to current column
             match event {
                 Event::Start(tag) => {
+                    // check previous tag id
+                    // if current tag id is smaller than previous one or equal, start new line
+                    if let Some(current_idx) = mapping.get_idx(current_block, &tag) {
+                        if current_idx <= &previous_idx {
+                            start_new_line = true;
+                        }
+                    } else if mapping.is_last_key(current_block, tag) {
+                        start_new_line = true;
+                    }
                     if let Tag::Heading(1) = tag {
                         // Heading 1 is the sheet name
                         is_sheet_name = true;
                     } else {
-                        if last_is_list {
+                        if start_new_line {
                             // start a new row
                             // insert auto incremented id if rule exists
                             if let Some(id_idx) = mapping.get_auto_increment_idx(current_block) {
@@ -103,7 +113,8 @@ impl Data {
                             }
                             block.rows.push(row.clone());
                             row = Row::new(current_block, &mapping);
-                            last_is_list = false;
+                            start_new_line = false;
+                            previous_idx = 0;
                             current_row += 1;
                         }
                         if let Some(column_idx) = mapping.get_idx(current_block, &tag) {
@@ -120,10 +131,11 @@ impl Data {
                     }
                 }
                 Event::End(tag) => {
-                    if let Tag::List(_) = tag {
-                        last_is_list = true;
-                    }
                     is_sheet_name = false;
+                    // store this tag idx as previous tag idx to be used by next loop
+                    if let Some(idx) = mapping.get_idx(current_block, &tag) {
+                        previous_idx = *idx;
+                    }
                 }
                 _ => {}
             }
@@ -420,6 +432,89 @@ doc:
                                 String::default(),
                                 String::default(),
                                 String::from("\nTest Description\nmore lines..."),
+                            ],
+                        },
+                    ],
+                }],
+            }],
+            mapping,
+            rule: rule_clone,
+        };
+        assert_eq!(expected, data);
+    }
+
+    #[test]
+    fn test_marshal_without_list() {
+        let rule = Rule::marshal(
+            r#"
+doc:
+  blocks:
+    - block:
+      - column: No
+        isNum: true
+      - group: Variation
+        columns:
+        - column: Variation 1
+          md: Heading2
+        - column: Variation 2
+          md: Heading3
+            "#,
+        )
+        .unwrap();
+        let rule_clone = rule.clone();
+        let mapping = Mapping::new(&rule).unwrap();
+        let data = Data::marshal(
+            r#"
+# Sheet Name
+## Test Variation 1
+### Test Variation 1-1
+### Test Variation 1-2
+## Test Variation 2
+## Test Variation 3
+### Test Variation 3-1
+### Test Variation 3-2
+            "#,
+            rule,
+        )
+        .unwrap();
+        let expected = Data {
+            sheets: vec![Sheet {
+                sheet_name: Some(String::from("Sheet Name")),
+                blocks: vec![Block {
+                    rows: vec![
+                        Row {
+                            columns: vec![
+                                String::from("1"),
+                                String::from("\nTest Variation 1"),
+                                String::from("\nTest Variation 1-1"),
+                            ],
+                        },
+                        Row {
+                            columns: vec![
+                                String::from("2"),
+                                String::default(),
+                                String::from("\nTest Variation 1-2"),
+                            ],
+                        },
+                        Row {
+                            columns: vec![
+                                String::from("3"),
+                                String::from("\nTest Variation 2"),
+                                String::default(),
+                            ],
+                        },
+                        Row {
+                            columns: vec![
+                                String::from("4"),
+                                String::from("\nTest Variation 3"),
+                                String::from("\nTest Variation 3-1"),
+                            ],
+                        },
+                        Row {
+                            columns: vec![
+                                String::from("5"),
+                                String::default(),
+                                String::from("\nTest Variation 3-2"),
                             ],
                         },
                     ],
