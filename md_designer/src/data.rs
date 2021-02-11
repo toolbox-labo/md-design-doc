@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use log::{debug, info};
 use pulldown_cmark::{CowStr, Event, Options, Parser, Tag};
 
 use crate::{mapping::Mapping, rule::Rule};
@@ -40,6 +41,7 @@ impl Default for Data {
 
 impl Data {
     pub fn marshal(input: &str, rule: Rule) -> Result<Self> {
+        info!("parsing input with parsed rules...");
         // trim first empty lines
         let input = input.trim_start();
 
@@ -147,15 +149,20 @@ impl Data {
         block.rows.push(row);
         sheet.blocks.push(block);
 
-        Ok(Self {
+        let data = Self {
             sheets: vec![sheet],
             rule,
             mapping,
-        })
+        };
+
+        info!("OK");
+        debug!("parsed data: \n{:?}", data);
+        Ok(data)
     }
 
     #[cfg(feature = "excel")]
     pub fn export_excel(&self, file_name: &str) -> Result<()> {
+        info!("exporting excel file ({}.xlsx)...", file_name);
         // TODO: customizable start positions
         let (_start_x, _start_y) = (0, 0);
         let (block_start_x, mut block_start_y) = (0, 0);
@@ -232,6 +239,7 @@ impl Data {
                 }
             }
         }
+        info!("OK");
         Ok(())
     }
 
