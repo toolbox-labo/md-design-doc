@@ -336,6 +336,8 @@ impl Default for Row {
 
 #[cfg(test)]
 mod tests {
+    use std::fs::read_to_string;
+
     use super::*;
 
     #[test]
@@ -359,48 +361,14 @@ mod tests {
     }
 
     fn get_default_rule() -> Rule {
-        Rule::marshal(
-            r#"
-doc:
-  blocks:
-    - title: Block Title
-      content:
-      - column: No
-        isNum: true
-      - group: Variation
-        columns:
-        - column: Variation 1
-          md: Heading2
-        - column: Variation 2
-          md: Heading3
-        - column: Variation 3
-          md: Heading4
-        - column: Variation 4
-          md: Heading5
-        - column: Variation 5
-          md: Heading6
-        - column: Variation 6
-          md: Heading7
-        - column: Variation 7
-          md: Heading8
-        - column: Description
-          md: List
-            "#,
-        )
-        .unwrap()
+        Rule::marshal(&read_to_string("test_case/rule/default_rule.yml").unwrap()).unwrap()
     }
 
     #[test]
     fn test_marshal_error() {
         let rule = get_default_rule();
         let data = Data::marshal(
-            r#"
-## Test Variation 1
-### Test Variation 1-1
-#### Test Variation 1-1-1
-* Test Description
-  more lines...
-            "#,
+            &read_to_string("test_case/input/error_input.md").unwrap(),
             rule,
         );
         assert!(data.is_err());
@@ -412,27 +380,7 @@ doc:
         let rule_clone = rule.clone();
         let mapping = Mapping::new(&rule).unwrap();
         let data = Data::marshal(
-            r#"
-# Sheet Name
-## Test Variation 1
-### Test Variation 1-1
-#### Test Variation 1-1-1
-##### Test Variation 1-1-1-1
-###### Test Variation 1-1-1-1-1
-####### Test Variation 1-1-1-1-1-1
-######## Test Variation 1-1-1-1-1-1-1
-* Test Description
-  more lines...
-## Test Variation 2
-### Test Variation 2-1
-#### Test Variation 2-1-1
-##### Test Variation 2-1-1-1
-* Test Description
-  more lines...
-##### Test Variation 2-1-1-2
-* Test Description
-  more lines...
-            "#,
+            &read_to_string("test_case/input/single_block_multi_row.md").unwrap(),
             rule,
         )
         .unwrap();
@@ -492,141 +440,12 @@ doc:
 
     #[test]
     fn test_marshal_multiple_blocks() {
-        let rule = Rule::marshal(
-            r#"
-doc:
-  blocks:
-    - title: Block Title 1
-      content:
-      - column: No
-        isNum: true
-      - group: Variation
-        columns:
-        - column: Variation 1
-          md: Heading2
-        - column: Variation 2
-          md: Heading3
-        - column: Variation 3
-          md: Heading4
-        - column: Variation 4
-          md: Heading5
-        - column: Variation 5
-          md: Heading6
-        - column: Variation 6
-          md: Heading7
-        - column: Variation 7
-          md: Heading8
-      - column: Description
-        md: List
-    - title: Block Title 2
-      content:
-      - column: No
-        isNum: true
-      - group: Variation
-        columns:
-        - column: Variation 1
-          md: Heading2
-        - column: Variation 2
-          md: Heading3
-        - column: Variation 3
-          md: Heading4
-        - column: Variation 4
-          md: Heading5
-        - column: Variation 5
-          md: Heading6
-        - column: Variation 6
-          md: Heading7
-        - column: Variation 7
-          md: Heading8
-      - column: Description
-        md: List
-    - title: Block Title 3
-      content:
-      - column: No
-        isNum: true
-      - group: Variation
-        columns:
-        - column: Variation 1
-          md: Heading2
-        - column: Variation 2
-          md: Heading3
-        - column: Variation 3
-          md: Heading4
-        - column: Variation 4
-          md: Heading5
-        - column: Variation 5
-          md: Heading6
-        - column: Variation 6
-          md: Heading7
-        - column: Variation 7
-          md: Heading8
-      - column: Description
-        md: List
-            "#,
-        )
-        .unwrap();
+        let rule =
+            Rule::marshal(&read_to_string("test_case/rule/multi_block.yml").unwrap()).unwrap();
         let rule_clone = rule.clone();
         let mapping = Mapping::new(&rule).unwrap();
         let data = Data::marshal(
-            r#"
-# Sheet Name
-## Test Variation A 1
-### Test Variation A 1-1
-#### Test Variation A 1-1-1
-##### Test Variation A 1-1-1-1
-###### Test Variation A 1-1-1-1-1
-####### Test Variation A 1-1-1-1-1-1
-######## Test Variation A 1-1-1-1-1-1-1
-* Test Description
-  more lines...
-## Test Variation A 2
-### Test Variation A 2-1
-#### Test Variation A 2-1-1
-##### Test Variation A 2-1-1-1
-* Test Description
-  more lines...
-##### Test Variation A 2-1-1-2
-* Test Description
-  more lines...
----
-## Test Variation B 1
-### Test Variation B 1-1
-#### Test Variation B 1-1-1
-##### Test Variation B 1-1-1-1
-###### Test Variation B 1-1-1-1-1
-####### Test Variation B 1-1-1-1-1-1
-######## Test Variation B 1-1-1-1-1-1-1
-* Test Description
-  more lines...
-## Test Variation B 2
-### Test Variation B 2-1
-#### Test Variation B 2-1-1
-##### Test Variation B 2-1-1-1
-* Test Description
-  more lines...
-##### Test Variation B 2-1-1-2
-* Test Description
-  more lines...
----
-## Test Variation C 1
-### Test Variation C 1-1
-#### Test Variation C 1-1-1
-##### Test Variation C 1-1-1-1
-###### Test Variation C 1-1-1-1-1
-####### Test Variation C 1-1-1-1-1-1
-######## Test Variation C 1-1-1-1-1-1-1
-* Test Description
-  more lines...
-## Test Variation C 2
-### Test Variation C 2-1
-#### Test Variation C 2-1-1
-##### Test Variation C 2-1-1-1
-* Test Description
-  more lines...
-##### Test Variation C 2-1-1-2
-* Test Description
-  more lines...
-            "#,
+            &read_to_string("test_case/input/multi_block_multi_row.md").unwrap(),
             rule,
         )
         .unwrap();
@@ -776,36 +595,12 @@ doc:
 
     #[test]
     fn test_marshal_without_list() {
-        let rule = Rule::marshal(
-            r#"
-doc:
-  blocks:
-    - title: Block Title
-      content:
-      - column: No
-        isNum: true
-      - group: Variation
-        columns:
-        - column: Variation 1
-          md: Heading2
-        - column: Variation 2
-          md: Heading3
-            "#,
-        )
-        .unwrap();
+        let rule =
+            Rule::marshal(&read_to_string("test_case/rule/without_list.yml").unwrap()).unwrap();
         let rule_clone = rule.clone();
         let mapping = Mapping::new(&rule).unwrap();
         let data = Data::marshal(
-            r#"
-# Sheet Name
-## Test Variation 1
-### Test Variation 1-1
-### Test Variation 1-2
-## Test Variation 2
-## Test Variation 3
-### Test Variation 3-1
-### Test Variation 3-2
-            "#,
+            &read_to_string("test_case/input/without_list.md").unwrap(),
             rule,
         )
         .unwrap();
@@ -863,27 +658,7 @@ doc:
     fn test_export_excel() {
         let rule = get_default_rule();
         let data = Data::marshal(
-            r#"
-# Sheet Name
-## Test Variation 1
-### Test Variation 1-1
-#### Test Variation 1-1-1
-##### Test Variation 1-1-1-1
-###### Test Variation 1-1-1-1-1
-####### Test Variation 1-1-1-1-1-1
-######## Test Variation 1-1-1-1-1-1-1
-* Test Description
-  more lines...
-## Test Variation 2
-### Test Variation 2-1
-#### Test Variation 2-1-1
-##### Test Variation 2-1-1-1
-* Test Description
-  more lines...
-##### Test Variation 2-1-1-2
-* Test Description
-  more lines...
-            "#,
+            &read_to_string("test_case/input/single_block_multi_row.md").unwrap(),
             rule,
         )
         .unwrap();

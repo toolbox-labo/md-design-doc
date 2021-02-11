@@ -1,0 +1,12 @@
+doc:
+  blocks:
+    - title: Block Title
+      content:
+      - column: No
+        isNum: true
+      - group: Variation
+        columns:
+        - column: Variation 1
+          md: Heading2
+        - column: Variation 2
+          md: Heading3
