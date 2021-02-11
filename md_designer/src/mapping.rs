@@ -7,64 +7,104 @@ use crate::{constant::AUTO_INCREMENT_KEY, rule::Rule, utils::cmarktag_stringify}
 
 #[derive(Debug, PartialEq)]
 pub struct Mapping {
-    pub mappings: Vec<HashMap<String, usize>>,
-    last_keys: Vec<Option<String>>,
+    blocks: Vec<Block>,
 }
 
 impl Mapping {
     pub fn new(rule: &Rule) -> Result<Self> {
-        let mut mappings = vec![];
-        let mut last_keys = vec![];
+        let mut blocks = vec![];
         rule.doc.blocks.iter().for_each(|block| {
-            let mut data = HashMap::new();
+            let mut mapping = HashMap::new();
             let mut last_key = None;
             block.columns.iter().enumerate().for_each(|(idx, column)| {
                 if column.auto_increment {
-                    data.insert(AUTO_INCREMENT_KEY.clone(), idx);
+                    mapping.insert(AUTO_INCREMENT_KEY.clone(), idx);
                 } else {
-                    data.insert(column.cmark_tag.clone(), idx);
+                    mapping.insert(column.cmark_tag.clone(), idx);
                 }
                 if column.is_last {
                     last_key = Some(column.cmark_tag.clone());
                 }
             });
-            mappings.push(data);
-            last_keys.push(last_key);
+            blocks.push(Block {
+                title: block.title.clone(),
+                mapping,
+                last_key,
+            });
         });
-        Ok(Mapping {
-            mappings,
-            last_keys,
-        })
+        Ok(Mapping { blocks })
     }
 }
 
 impl Mapping {
     pub fn get_idx(&self, block_idx: usize, tag: &Tag<'_>) -> Option<&usize> {
-        if let Some(map) = self.mappings.get(block_idx) {
-            if let Some(tag_str) = cmarktag_stringify(tag) {
-                return map.get(&tag_str);
-            }
+        if let Some(block) = self.blocks.get(block_idx) {
+            return block.get_idx(tag);
         }
         None
     }
 
     pub fn get_auto_increment_idx(&self, block_idx: usize) -> Option<&usize> {
-        if let Some(map) = self.mappings.get(block_idx) {
-            return map.get(&AUTO_INCREMENT_KEY.clone());
+        if let Some(block) = self.blocks.get(block_idx) {
+            return block.get_auto_increment_idx();
         }
         None
     }
 
     pub fn get_size(&self, block_idx: usize) -> Option<usize> {
-        if let Some(map) = self.mappings.get(block_idx) {
-            return Some(map.len());
+        if let Some(block) = self.blocks.get(block_idx) {
+            return block.get_size();
         }
         None
     }
 
     pub fn is_last_key(&self, block_idx: usize, tag: &Tag<'_>) -> bool {
-        if let Some(Some(k)) = self.last_keys.get(block_idx) {
-            if let Some(tag_str) = cmarktag_stringify(tag) {
+        if let Some(block) = self.blocks.get(block_idx) {
+            return block.is_last_key(tag);
+        }
+        false
+    }
+
+    pub fn get_title(&self, block_idx: usize) -> Option<String> {
+        if let Some(block) = self.blocks.get(block_idx) {
+            return Some(block.title.clone());
+        }
+        None
+    }
+}
+
+impl Default for Mapping {
+    fn default() -> Self {
+        Self { blocks: vec![] }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+struct Block {
+    title: String,
+    mapping: HashMap<String, usize>,
+    last_key: Option<String>,
+}
+
+impl Block {
+    pub fn get_idx(&self, tag: &Tag<'_>) -> Option<&usize> {
+        if let Some(tag_str) = cmarktag_stringify(tag) {
+            return self.mapping.get(&tag_str);
+        }
+        None
+    }
+
+    pub fn get_auto_increment_idx(&self) -> Option<&usize> {
+        self.mapping.get(&AUTO_INCREMENT_KEY.clone())
+    }
+
+    pub fn get_size(&self) -> Option<usize> {
+        Some(self.mapping.len())
+    }
+
+    pub fn is_last_key(&self, tag: &Tag<'_>) -> bool {
+        if let Some(tag_str) = cmarktag_stringify(tag) {
+            if let Some(k) = &self.last_key {
                 return k == &tag_str;
             }
         }
@@ -72,11 +112,12 @@ impl Mapping {
     }
 }
 
-impl Default for Mapping {
+impl Default for Block {
     fn default() -> Self {
         Self {
-            mappings: vec![],
-            last_keys: vec![],
+            title: String::default(),
+            mapping: HashMap::new(),
+            last_key: None,
         }
     }
 }
@@ -100,12 +141,24 @@ mod tests {
     }
 
     #[test]
+    fn test_get_title() {
+        let mut mapping = Mapping::default();
+        mapping.blocks.push(Block {
+            title: String::from("Block Title"),
+            ..Default::default()
+        });
+        assert_eq!(Some(String::from("Block Title")), mapping.get_title(0));
+        assert!(mapping.get_title(99).is_none());
+    }
+
+    #[test]
     fn test_mapping() {
         let rule = Rule::marshal(
             r#"
 doc:
   blocks:
-    - block:
+    - title: Block Title
+      content:
       - column: No
         isNum: true
       - group: Variation
@@ -141,8 +194,11 @@ doc:
         map.insert("Heading8".to_string(), 7);
         map.insert("List".to_string(), 8);
         let expected = Mapping {
-            mappings: vec![map],
-            last_keys: vec![Some(String::from("List"))],
+            blocks: vec![Block {
+                title: String::from("Block Title"),
+                mapping: map,
+                last_key: Some(String::from("List")),
+            }],
         };
         assert_eq!(expected, mapping);
         assert!(!mapping.is_last_key(0, &Tag::Heading(8)));
