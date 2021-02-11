@@ -278,10 +278,11 @@ impl Data {
 
     fn concat(target: &Option<&String>, input: &str) -> String {
         if let Some(str) = target {
-            format!("{}\n{}", str, input)
-        } else {
-            input.to_string()
+            if !str.is_empty() {
+                return format!("{}\n{}", str, input);
+            }
         }
+        input.to_string()
     }
 }
 
@@ -393,27 +394,27 @@ mod tests {
                         Row {
                             columns: vec![
                                 String::from("1"),
-                                String::from("\nTest Variation 1"),
-                                String::from("\nTest Variation 1-1"),
-                                String::from("\nTest Variation 1-1-1"),
-                                String::from("\nTest Variation 1-1-1-1"),
-                                String::from("\nTest Variation 1-1-1-1-1"),
-                                String::from("\nTest Variation 1-1-1-1-1-1"),
-                                String::from("\nTest Variation 1-1-1-1-1-1-1"),
-                                String::from("\nTest Description\nmore lines..."),
+                                String::from("Test Variation 1"),
+                                String::from("Test Variation 1-1"),
+                                String::from("Test Variation 1-1-1"),
+                                String::from("Test Variation 1-1-1-1"),
+                                String::from("Test Variation 1-1-1-1-1"),
+                                String::from("Test Variation 1-1-1-1-1-1"),
+                                String::from("Test Variation 1-1-1-1-1-1-1"),
+                                String::from("Test Description\nmore lines..."),
                             ],
                         },
                         Row {
                             columns: vec![
                                 String::from("2"),
-                                String::from("\nTest Variation 2"),
-                                String::from("\nTest Variation 2-1"),
-                                String::from("\nTest Variation 2-1-1"),
-                                String::from("\nTest Variation 2-1-1-1"),
+                                String::from("Test Variation 2"),
+                                String::from("Test Variation 2-1"),
+                                String::from("Test Variation 2-1-1"),
+                                String::from("Test Variation 2-1-1-1"),
                                 String::default(),
                                 String::default(),
                                 String::default(),
-                                String::from("\nTest Description\nmore lines..."),
+                                String::from("Test Description\nmore lines..."),
                             ],
                         },
                         Row {
@@ -422,11 +423,11 @@ mod tests {
                                 String::default(),
                                 String::default(),
                                 String::default(),
-                                String::from("\nTest Variation 2-1-1-2"),
+                                String::from("Test Variation 2-1-1-2"),
                                 String::default(),
                                 String::default(),
                                 String::default(),
-                                String::from("\nTest Description\nmore lines..."),
+                                String::from("Test Description\nmore lines..."),
                             ],
                         },
                     ],
@@ -459,27 +460,27 @@ mod tests {
                             Row {
                                 columns: vec![
                                     String::from("1"),
-                                    String::from("\nTest Variation A 1"),
-                                    String::from("\nTest Variation A 1-1"),
-                                    String::from("\nTest Variation A 1-1-1"),
-                                    String::from("\nTest Variation A 1-1-1-1"),
-                                    String::from("\nTest Variation A 1-1-1-1-1"),
-                                    String::from("\nTest Variation A 1-1-1-1-1-1"),
-                                    String::from("\nTest Variation A 1-1-1-1-1-1-1"),
-                                    String::from("\nTest Description\nmore lines..."),
+                                    String::from("Test Variation A 1"),
+                                    String::from("Test Variation A 1-1"),
+                                    String::from("Test Variation A 1-1-1"),
+                                    String::from("Test Variation A 1-1-1-1"),
+                                    String::from("Test Variation A 1-1-1-1-1"),
+                                    String::from("Test Variation A 1-1-1-1-1-1"),
+                                    String::from("Test Variation A 1-1-1-1-1-1-1"),
+                                    String::from("Test Description\nmore lines..."),
                                 ],
                             },
                             Row {
                                 columns: vec![
                                     String::from("2"),
-                                    String::from("\nTest Variation A 2"),
-                                    String::from("\nTest Variation A 2-1"),
-                                    String::from("\nTest Variation A 2-1-1"),
-                                    String::from("\nTest Variation A 2-1-1-1"),
+                                    String::from("Test Variation A 2"),
+                                    String::from("Test Variation A 2-1"),
+                                    String::from("Test Variation A 2-1-1"),
+                                    String::from("Test Variation A 2-1-1-1"),
                                     String::default(),
                                     String::default(),
                                     String::default(),
-                                    String::from("\nTest Description\nmore lines..."),
+                                    String::from("Test Description\nmore lines..."),
                                 ],
                             },
                             Row {
@@ -488,11 +489,11 @@ mod tests {
                                     String::default(),
                                     String::default(),
                                     String::default(),
-                                    String::from("\nTest Variation A 2-1-1-2"),
+                                    String::from("Test Variation A 2-1-1-2"),
                                     String::default(),
                                     String::default(),
                                     String::default(),
-                                    String::from("\nTest Description\nmore lines..."),
+                                    String::from("Test Description\nmore lines..."),
                                 ],
                             },
                         ],
@@ -503,27 +504,27 @@ mod tests {
                             Row {
                                 columns: vec![
                                     String::from("1"),
-                                    String::from("\nTest Variation B 1"),
-                                    String::from("\nTest Variation B 1-1"),
-                                    String::from("\nTest Variation B 1-1-1"),
-                                    String::from("\nTest Variation B 1-1-1-1"),
-                                    String::from("\nTest Variation B 1-1-1-1-1"),
-                                    String::from("\nTest Variation B 1-1-1-1-1-1"),
-                                    String::from("\nTest Variation B 1-1-1-1-1-1-1"),
-                                    String::from("\nTest Description\nmore lines..."),
+                                    String::from("Test Variation B 1"),
+                                    String::from("Test Variation B 1-1"),
+                                    String::from("Test Variation B 1-1-1"),
+                                    String::from("Test Variation B 1-1-1-1"),
+                                    String::from("Test Variation B 1-1-1-1-1"),
+                                    String::from("Test Variation B 1-1-1-1-1-1"),
+                                    String::from("Test Variation B 1-1-1-1-1-1-1"),
+                                    String::from("Test Description\nmore lines..."),
                                 ],
                             },
                             Row {
                                 columns: vec![
                                     String::from("2"),
-                                    String::from("\nTest Variation B 2"),
-                                    String::from("\nTest Variation B 2-1"),
-                                    String::from("\nTest Variation B 2-1-1"),
-                                    String::from("\nTest Variation B 2-1-1-1"),
+                                    String::from("Test Variation B 2"),
+                                    String::from("Test Variation B 2-1"),
+                                    String::from("Test Variation B 2-1-1"),
+                                    String::from("Test Variation B 2-1-1-1"),
                                     String::default(),
                                     String::default(),
                                     String::default(),
-                                    String::from("\nTest Description\nmore lines..."),
+                                    String::from("Test Description\nmore lines..."),
                                 ],
                             },
                             Row {
@@ -532,11 +533,11 @@ mod tests {
                                     String::default(),
                                     String::default(),
                                     String::default(),
-                                    String::from("\nTest Variation B 2-1-1-2"),
+                                    String::from("Test Variation B 2-1-1-2"),
                                     String::default(),
                                     String::default(),
                                     String::default(),
-                                    String::from("\nTest Description\nmore lines..."),
+                                    String::from("Test Description\nmore lines..."),
                                 ],
                             },
                         ],
@@ -547,27 +548,27 @@ mod tests {
                             Row {
                                 columns: vec![
                                     String::from("1"),
-                                    String::from("\nTest Variation C 1"),
-                                    String::from("\nTest Variation C 1-1"),
-                                    String::from("\nTest Variation C 1-1-1"),
-                                    String::from("\nTest Variation C 1-1-1-1"),
-                                    String::from("\nTest Variation C 1-1-1-1-1"),
-                                    String::from("\nTest Variation C 1-1-1-1-1-1"),
-                                    String::from("\nTest Variation C 1-1-1-1-1-1-1"),
-                                    String::from("\nTest Description\nmore lines..."),
+                                    String::from("Test Variation C 1"),
+                                    String::from("Test Variation C 1-1"),
+                                    String::from("Test Variation C 1-1-1"),
+                                    String::from("Test Variation C 1-1-1-1"),
+                                    String::from("Test Variation C 1-1-1-1-1"),
+                                    String::from("Test Variation C 1-1-1-1-1-1"),
+                                    String::from("Test Variation C 1-1-1-1-1-1-1"),
+                                    String::from("Test Description\nmore lines..."),
                                 ],
                             },
                             Row {
                                 columns: vec![
                                     String::from("2"),
-                                    String::from("\nTest Variation C 2"),
-                                    String::from("\nTest Variation C 2-1"),
-                                    String::from("\nTest Variation C 2-1-1"),
-                                    String::from("\nTest Variation C 2-1-1-1"),
+                                    String::from("Test Variation C 2"),
+                                    String::from("Test Variation C 2-1"),
+                                    String::from("Test Variation C 2-1-1"),
+                                    String::from("Test Variation C 2-1-1-1"),
                                     String::default(),
                                     String::default(),
                                     String::default(),
-                                    String::from("\nTest Description\nmore lines..."),
+                                    String::from("Test Description\nmore lines..."),
                                 ],
                             },
                             Row {
@@ -576,11 +577,11 @@ mod tests {
                                     String::default(),
                                     String::default(),
                                     String::default(),
-                                    String::from("\nTest Variation C 2-1-1-2"),
+                                    String::from("Test Variation C 2-1-1-2"),
                                     String::default(),
                                     String::default(),
                                     String::default(),
-                                    String::from("\nTest Description\nmore lines..."),
+                                    String::from("Test Description\nmore lines..."),
                                 ],
                             },
                         ],
@@ -613,36 +614,36 @@ mod tests {
                         Row {
                             columns: vec![
                                 String::from("1"),
-                                String::from("\nTest Variation 1"),
-                                String::from("\nTest Variation 1-1"),
+                                String::from("Test Variation 1"),
+                                String::from("Test Variation 1-1"),
                             ],
                         },
                         Row {
                             columns: vec![
                                 String::from("2"),
                                 String::default(),
-                                String::from("\nTest Variation 1-2"),
+                                String::from("Test Variation 1-2"),
                             ],
                         },
                         Row {
                             columns: vec![
                                 String::from("3"),
-                                String::from("\nTest Variation 2"),
+                                String::from("Test Variation 2"),
                                 String::default(),
                             ],
                         },
                         Row {
                             columns: vec![
                                 String::from("4"),
-                                String::from("\nTest Variation 3"),
-                                String::from("\nTest Variation 3-1"),
+                                String::from("Test Variation 3"),
+                                String::from("Test Variation 3-1"),
                             ],
                         },
                         Row {
                             columns: vec![
                                 String::from("5"),
                                 String::default(),
-                                String::from("\nTest Variation 3-2"),
+                                String::from("Test Variation 3-2"),
                             ],
                         },
                     ],
@@ -680,5 +681,11 @@ mod tests {
         let input = "input";
         let result = Data::concat(&target, input);
         assert_eq!(String::from("target\ninput"), result);
+        // Some but target is empty
+        let data = String::from("");
+        let target = Some(&data);
+        let input = "input";
+        let result = Data::concat(&target, input);
+        assert_eq!(String::from("input"), result);
     }
 }
