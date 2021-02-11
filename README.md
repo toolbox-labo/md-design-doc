@@ -96,7 +96,8 @@ WIP
 #   prefix: IT
 doc:
   blocks:
-    - block:
+    - title: Block Title 1
+      content:
       - column: No
         isNum: true
       - group: Variation
@@ -123,12 +124,14 @@ doc:
       #   md: List
       # - column: Confirmation Items
       #   md: TaskList
-    # TODO: multi blocks support
-    # - block:
-    #   - column: another block's column 1
-    #     md: Heading2
-    #   - column: another block's column 2
-    #     md: Heading3
+    - title: Block Title 2
+      content:
+      - column: No
+        isNum: true
+      - column: another block's column 1
+        md: Heading2
+      - column: another block's column 2
+        md: Heading3
 ```
 
 ### Markdown Pattern
@@ -137,12 +140,29 @@ WIP
 
 ```markdown
 # Sheet Name
-## Test Variation - 1
-### Test Variation - 2-1
-#### Test Variation - 3-1
+## Test Variation 1
+### Test Variation 1-1
+#### Test Variation 1-1-1
 * Test Description
   more lines...
   more lines...
+### Test Variation 1-2
+#### Test Variation 1-2-1
+* Test Description
+  more lines...
+  more lines...
+#### Test Variation 1-2-2
+##### Test Variation 1-2-2-1
+* Test Description
+  more lines...
+  more lines...
+---
+## Cell 1
+## Cell 2
+### Cell 2-1
+## Cell 3
+### Cell 3-1
+### Cell 3-2
 ```
 
 ## Contributing
