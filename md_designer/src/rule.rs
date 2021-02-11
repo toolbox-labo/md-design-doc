@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 use anyhow::{Context, Result};
+use log::{debug, info};
 use yaml_rust::{Yaml, YamlLoader};
 
 #[derive(Debug, PartialEq, Clone)]
@@ -27,6 +28,7 @@ pub struct Rule {
 
 impl Rule {
     pub fn marshal(input: &str) -> Result<Self> {
+        info!("parsing rules...");
         let docs = YamlLoader::load_from_str(input)?;
         let doc = &docs[0]["doc"];
         let mut blcs = vec![];
@@ -116,10 +118,13 @@ impl Rule {
                 blcs.push(blc);
             }
         }
-
-        Ok(Rule {
+        let rule = Rule {
             doc: Doc { blocks: blcs },
-        })
+        };
+
+        info!("OK");
+        debug!("parsed rule: \n{:?}", rule);
+        Ok(rule)
     }
 }
 

@@ -16,3 +16,6 @@ regex = "1.4.3"
 xlsxwriter = { version = "0.3.2", optional = true }
 yaml-rust = "0.4.5"
 lazy_static = "1.4.0"
+env_logger = "0.8.2"
+log = "0.4.14"
+chrono = "0.4.19"

@@ -1,10 +1,11 @@
 #![warn(rust_2018_idioms)]
 
-use std::fs;
-use std::path::Path;
+use std::{env, fs, io::Write, path::Path};
 
 use anyhow::{Context, Result};
+use chrono::Local;
 use clap::{crate_authors, crate_description, crate_name, crate_version, App as ClapApp, Arg};
+use log::{debug, info};
 
 use md_designer::app::App;
 use md_designer::rule::Rule;
@@ -25,11 +26,51 @@ fn main() -> Result<()> {
                 .required(true)
                 .help("config file path (.yml)"),
         )
+        .arg(
+            Arg::with_name("verbose")
+                .short("v")
+                .help("verbose (print errors/warnings/info logs)"),
+        )
+        .arg(
+            Arg::with_name("very_verbose")
+                .short("d")
+                .help("very verbose (also print debug logs)"),
+        )
         .get_matches();
 
+    // setup logging
+    let log_level = {
+        if clap.is_present("verbose") {
+            Some("info")
+        } else if clap.is_present("very_verbose") {
+            Some("debug")
+        } else {
+            None
+        }
+    };
+    if let Some(level) = log_level {
+        env::set_var("RUST_LOG", level);
+        env_logger::Builder::from_default_env()
+            .format(|buf, record| {
+                writeln!(
+                    buf,
+                    "{} [{}] - {}",
+                    Local::now().format("%Y-%m-%dT%H:%M:%S"),
+                    record.level(),
+                    record.args(),
+                )
+            })
+            .init();
+    }
+
     let path = Path::new(clap.value_of("path").unwrap());
+    info!("input file: {:?}", &path);
     let input_text = fs::read_to_string(&path)?;
-    let cfg_text = fs::read_to_string(clap.value_of("conf_path").unwrap())?;
+    debug!("input file content: \n{}", &input_text);
+    let cfg_path = Path::new(clap.value_of("conf_path").unwrap());
+    info!("rule file: {:?}", &cfg_path);
+    let cfg_text = fs::read_to_string(&cfg_path)?;
+    debug!("rule file content: \n{}", &cfg_text);
 
     let rule = Rule::marshal(&cfg_text)?;
 
@@ -44,5 +85,6 @@ fn main() -> Result<()> {
 
     app.export_excel()?;
 
+    info!("DONE");
     Ok(())
 }
