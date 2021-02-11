@@ -37,7 +37,10 @@ impl Rule {
         if let Some(blocks) = doc["blocks"].as_vec() {
             for v in blocks.iter() {
                 let mut blc = Block::default();
-                if let Some(block) = v["block"].as_vec() {
+                if let Some(title) = v["title"].as_str() {
+                    blc.title = title.to_string();
+                }
+                if let Some(block) = v["content"].as_vec() {
                     let mut idx: usize = 0;
                     let mut group_from: Option<usize> = None;
                     let mut group_to: Option<usize> = None;
@@ -149,6 +152,7 @@ impl Default for Doc {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Block {
+    pub title: String,
     pub columns: Vec<Column>,
     pub merge_info: Vec<MergeInfo>,
 }
@@ -156,6 +160,7 @@ pub struct Block {
 impl Default for Block {
     fn default() -> Self {
         Block {
+            title: String::default(),
             columns: vec![],
             merge_info: vec![],
         }
@@ -207,7 +212,8 @@ mod tests {
             r#"
 doc:
   blocks:
-    - block:
+    - title: Block Title
+      content:
       - invalid_key: wrong!!
             "#,
         );
@@ -220,7 +226,8 @@ doc:
             r#"
 doc:
   blocks:
-    - block:
+    - title: Block Title
+      content:
       - column: No
         isNum: true
       - group: Variation
@@ -250,6 +257,7 @@ doc:
         let expected = Rule {
             doc: Doc {
                 blocks: vec![Block {
+                    title: String::from("Block Title"),
                     columns: vec![
                         Column {
                             title: String::from("No"),

@@ -1,0 +1,68 @@
+doc:
+  blocks:
+    - title: Block Title 1
+      content:
+      - column: No
+        isNum: true
+      - group: Variation
+        columns:
+        - column: Variation 1
+          md: Heading2
+        - column: Variation 2
+          md: Heading3
+        - column: Variation 3
+          md: Heading4
+        - column: Variation 4
+          md: Heading5
+        - column: Variation 5
+          md: Heading6
+        - column: Variation 6
+          md: Heading7
+        - column: Variation 7
+          md: Heading8
+      - column: Description
+        md: List
+    - title: Block Title 2
+      content:
+      - column: No
+        isNum: true
+      - group: Variation
+        columns:
+        - column: Variation 1
+          md: Heading2
+        - column: Variation 2
+          md: Heading3
+        - column: Variation 3
+          md: Heading4
+        - column: Variation 4
+          md: Heading5
+        - column: Variation 5
+          md: Heading6
+        - column: Variation 6
+          md: Heading7
+        - column: Variation 7
+          md: Heading8
+      - column: Description
+        md: List
+    - title: Block Title 3
+      content:
+      - column: No
+        isNum: true
+      - group: Variation
+        columns:
+        - column: Variation 1
+          md: Heading2
+        - column: Variation 2
+          md: Heading3
+        - column: Variation 3
+          md: Heading4
+        - column: Variation 4
+          md: Heading5
+        - column: Variation 5
+          md: Heading6
+        - column: Variation 6
+          md: Heading7
+        - column: Variation 7
+          md: Heading8
+      - column: Description
+        md: List

@@ -1,5 +1,10 @@
-use anyhow::{anyhow, Result};
+#[cfg(not(test))]
 use log::{debug, info};
+
+#[cfg(test)]
+use std::{println as info, println as debug};
+
+use anyhow::{anyhow, Result};
 use pulldown_cmark::{CowStr, Event, Options, Parser, Tag};
 
 use crate::{mapping::Mapping, rule::Rule};
@@ -80,7 +85,7 @@ impl Data {
             }
         });
 
-        let current_block: usize = 0;
+        let mut current_block: usize = 0;
         let mut current_column: usize = 0;
         let mut sheet = Sheet::default();
         let mut block = Block::default();
@@ -92,6 +97,7 @@ impl Data {
 
         parser_filtered.iter().for_each(|event| {
             // if true, next text data is append to current column
+            debug!("event: {:?}", event);
             match event {
                 Event::Start(tag) => {
                     // check previous tag id
@@ -110,6 +116,7 @@ impl Data {
                         if start_new_line {
                             // start a new row
                             // insert auto incremented id if rule exists
+                            debug!("start a new line");
                             if let Some(id_idx) = mapping.get_auto_increment_idx(current_block) {
                                 row.columns[*id_idx] = format!("{}", current_row);
                             }
@@ -139,12 +146,35 @@ impl Data {
                         previous_idx = *idx;
                     }
                 }
+                Event::Rule => {
+                    debug!("start a new block");
+                    // push the last row and push block to blocks
+                    if let Some(id_idx) = mapping.get_auto_increment_idx(current_block) {
+                        row.columns[*id_idx] = format!("{}", current_row);
+                    }
+                    block.rows.push(row.clone());
+                    if let Some(title) = mapping.get_title(current_block) {
+                        block.title = title;
+                    }
+                    sheet.blocks.push(block.clone());
+                    // start a new block
+                    block = Block::default();
+                    current_block += 1;
+                    current_row = 1;
+                    current_column = 0;
+                    previous_idx = 0;
+                    //                    start_new_line = true;
+                    row = Row::new(current_block, &mapping);
+                }
                 _ => {}
             }
         });
-        // push the last row
+        // push the last row and block
         if let Some(id_idx) = mapping.get_auto_increment_idx(current_block) {
             row.columns[*id_idx] = format!("{}", current_row);
+        }
+        if let Some(title) = mapping.get_title(current_block) {
+            block.title = title;
         }
         block.rows.push(row);
         sheet.blocks.push(block);
@@ -171,6 +201,9 @@ impl Data {
             let mut s = workbook.add_worksheet(sheet.sheet_name.as_deref())?;
             let wrap_format = workbook.add_format().set_text_wrap();
             for (idx, block) in sheet.blocks.iter().enumerate() {
+                // render the block title
+                s.write_string(block_start_y, block_start_x, &block.title, None)?;
+                block_start_y += 1;
                 let mut merged_posisitons: Vec<CellRange> = vec![];
                 if let Some(b) = self.rule.doc.blocks.get(idx) {
                     // Header
@@ -235,7 +268,7 @@ impl Data {
                     }
 
                     // update block_start_y for the next block
-                    block_start_y += (last_y + 1) as u32;
+                    block_start_y += (last_y + 3) as u32;
                 }
             }
         }
@@ -269,12 +302,16 @@ impl Default for Sheet {
 
 #[derive(Debug, Clone, PartialEq)]
 struct Block {
+    title: String,
     rows: Vec<Row>,
 }
 
 impl Default for Block {
     fn default() -> Self {
-        Self { rows: vec![] }
+        Self {
+            title: String::default(),
+            rows: vec![],
+        }
     }
 }
 
@@ -299,6 +336,8 @@ impl Default for Row {
 
 #[cfg(test)]
 mod tests {
+    use std::fs::read_to_string;
+
     use super::*;
 
     #[test]
@@ -322,47 +361,14 @@ mod tests {
     }
 
     fn get_default_rule() -> Rule {
-        Rule::marshal(
-            r#"
-doc:
-  blocks:
-    - block:
-      - column: No
-        isNum: true
-      - group: Variation
-        columns:
-        - column: Variation 1
-          md: Heading2
-        - column: Variation 2
-          md: Heading3
-        - column: Variation 3
-          md: Heading4
-        - column: Variation 4
-          md: Heading5
-        - column: Variation 5
-          md: Heading6
-        - column: Variation 6
-          md: Heading7
-        - column: Variation 7
-          md: Heading8
-        - column: Description
-          md: List
-            "#,
-        )
-        .unwrap()
+        Rule::marshal(&read_to_string("test_case/rule/default_rule.yml").unwrap()).unwrap()
     }
 
     #[test]
     fn test_marshal_error() {
         let rule = get_default_rule();
         let data = Data::marshal(
-            r#"
-## Test Variation 1
-### Test Variation 1-1
-#### Test Variation 1-1-1
-* Test Description
-  more lines...
-            "#,
+            &read_to_string("test_case/input/error_input.md").unwrap(),
             rule,
         );
         assert!(data.is_err());
@@ -374,27 +380,7 @@ doc:
         let rule_clone = rule.clone();
         let mapping = Mapping::new(&rule).unwrap();
         let data = Data::marshal(
-            r#"
-# Sheet Name
-## Test Variation 1
-### Test Variation 1-1
-#### Test Variation 1-1-1
-##### Test Variation 1-1-1-1
-###### Test Variation 1-1-1-1-1
-####### Test Variation 1-1-1-1-1-1
-######## Test Variation 1-1-1-1-1-1-1
-* Test Description
-  more lines...
-## Test Variation 2
-### Test Variation 2-1
-#### Test Variation 2-1-1
-##### Test Variation 2-1-1-1
-* Test Description
-  more lines...
-##### Test Variation 2-1-1-2
-* Test Description
-  more lines...
-            "#,
+            &read_to_string("test_case/input/single_block_multi_row.md").unwrap(),
             rule,
         )
         .unwrap();
@@ -402,6 +388,7 @@ doc:
             sheets: vec![Sheet {
                 sheet_name: Some(String::from("Sheet Name")),
                 blocks: vec![Block {
+                    title: String::from("Block Title"),
                     rows: vec![
                         Row {
                             columns: vec![
@@ -452,36 +439,168 @@ doc:
     }
 
     #[test]
-    fn test_marshal_without_list() {
-        let rule = Rule::marshal(
-            r#"
-doc:
-  blocks:
-    - block:
-      - column: No
-        isNum: true
-      - group: Variation
-        columns:
-        - column: Variation 1
-          md: Heading2
-        - column: Variation 2
-          md: Heading3
-            "#,
-        )
-        .unwrap();
+    fn test_marshal_multiple_blocks() {
+        let rule =
+            Rule::marshal(&read_to_string("test_case/rule/multi_block.yml").unwrap()).unwrap();
         let rule_clone = rule.clone();
         let mapping = Mapping::new(&rule).unwrap();
         let data = Data::marshal(
-            r#"
-# Sheet Name
-## Test Variation 1
-### Test Variation 1-1
-### Test Variation 1-2
-## Test Variation 2
-## Test Variation 3
-### Test Variation 3-1
-### Test Variation 3-2
-            "#,
+            &read_to_string("test_case/input/multi_block_multi_row.md").unwrap(),
+            rule,
+        )
+        .unwrap();
+        let expected = Data {
+            sheets: vec![Sheet {
+                sheet_name: Some(String::from("Sheet Name")),
+                blocks: vec![
+                    Block {
+                        title: String::from("Block Title 1"),
+                        rows: vec![
+                            Row {
+                                columns: vec![
+                                    String::from("1"),
+                                    String::from("\nTest Variation A 1"),
+                                    String::from("\nTest Variation A 1-1"),
+                                    String::from("\nTest Variation A 1-1-1"),
+                                    String::from("\nTest Variation A 1-1-1-1"),
+                                    String::from("\nTest Variation A 1-1-1-1-1"),
+                                    String::from("\nTest Variation A 1-1-1-1-1-1"),
+                                    String::from("\nTest Variation A 1-1-1-1-1-1-1"),
+                                    String::from("\nTest Description\nmore lines..."),
+                                ],
+                            },
+                            Row {
+                                columns: vec![
+                                    String::from("2"),
+                                    String::from("\nTest Variation A 2"),
+                                    String::from("\nTest Variation A 2-1"),
+                                    String::from("\nTest Variation A 2-1-1"),
+                                    String::from("\nTest Variation A 2-1-1-1"),
+                                    String::default(),
+                                    String::default(),
+                                    String::default(),
+                                    String::from("\nTest Description\nmore lines..."),
+                                ],
+                            },
+                            Row {
+                                columns: vec![
+                                    String::from("3"),
+                                    String::default(),
+                                    String::default(),
+                                    String::default(),
+                                    String::from("\nTest Variation A 2-1-1-2"),
+                                    String::default(),
+                                    String::default(),
+                                    String::default(),
+                                    String::from("\nTest Description\nmore lines..."),
+                                ],
+                            },
+                        ],
+                    },
+                    Block {
+                        title: String::from("Block Title 2"),
+                        rows: vec![
+                            Row {
+                                columns: vec![
+                                    String::from("1"),
+                                    String::from("\nTest Variation B 1"),
+                                    String::from("\nTest Variation B 1-1"),
+                                    String::from("\nTest Variation B 1-1-1"),
+                                    String::from("\nTest Variation B 1-1-1-1"),
+                                    String::from("\nTest Variation B 1-1-1-1-1"),
+                                    String::from("\nTest Variation B 1-1-1-1-1-1"),
+                                    String::from("\nTest Variation B 1-1-1-1-1-1-1"),
+                                    String::from("\nTest Description\nmore lines..."),
+                                ],
+                            },
+                            Row {
+                                columns: vec![
+                                    String::from("2"),
+                                    String::from("\nTest Variation B 2"),
+                                    String::from("\nTest Variation B 2-1"),
+                                    String::from("\nTest Variation B 2-1-1"),
+                                    String::from("\nTest Variation B 2-1-1-1"),
+                                    String::default(),
+                                    String::default(),
+                                    String::default(),
+                                    String::from("\nTest Description\nmore lines..."),
+                                ],
+                            },
+                            Row {
+                                columns: vec![
+                                    String::from("3"),
+                                    String::default(),
+                                    String::default(),
+                                    String::default(),
+                                    String::from("\nTest Variation B 2-1-1-2"),
+                                    String::default(),
+                                    String::default(),
+                                    String::default(),
+                                    String::from("\nTest Description\nmore lines..."),
+                                ],
+                            },
+                        ],
+                    },
+                    Block {
+                        title: String::from("Block Title 3"),
+                        rows: vec![
+                            Row {
+                                columns: vec![
+                                    String::from("1"),
+                                    String::from("\nTest Variation C 1"),
+                                    String::from("\nTest Variation C 1-1"),
+                                    String::from("\nTest Variation C 1-1-1"),
+                                    String::from("\nTest Variation C 1-1-1-1"),
+                                    String::from("\nTest Variation C 1-1-1-1-1"),
+                                    String::from("\nTest Variation C 1-1-1-1-1-1"),
+                                    String::from("\nTest Variation C 1-1-1-1-1-1-1"),
+                                    String::from("\nTest Description\nmore lines..."),
+                                ],
+                            },
+                            Row {
+                                columns: vec![
+                                    String::from("2"),
+                                    String::from("\nTest Variation C 2"),
+                                    String::from("\nTest Variation C 2-1"),
+                                    String::from("\nTest Variation C 2-1-1"),
+                                    String::from("\nTest Variation C 2-1-1-1"),
+                                    String::default(),
+                                    String::default(),
+                                    String::default(),
+                                    String::from("\nTest Description\nmore lines..."),
+                                ],
+                            },
+                            Row {
+                                columns: vec![
+                                    String::from("3"),
+                                    String::default(),
+                                    String::default(),
+                                    String::default(),
+                                    String::from("\nTest Variation C 2-1-1-2"),
+                                    String::default(),
+                                    String::default(),
+                                    String::default(),
+                                    String::from("\nTest Description\nmore lines..."),
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            }],
+            mapping,
+            rule: rule_clone,
+        };
+        assert_eq!(expected, data);
+    }
+
+    #[test]
+    fn test_marshal_without_list() {
+        let rule =
+            Rule::marshal(&read_to_string("test_case/rule/without_list.yml").unwrap()).unwrap();
+        let rule_clone = rule.clone();
+        let mapping = Mapping::new(&rule).unwrap();
+        let data = Data::marshal(
+            &read_to_string("test_case/input/without_list.md").unwrap(),
             rule,
         )
         .unwrap();
@@ -489,6 +608,7 @@ doc:
             sheets: vec![Sheet {
                 sheet_name: Some(String::from("Sheet Name")),
                 blocks: vec![Block {
+                    title: String::from("Block Title"),
                     rows: vec![
                         Row {
                             columns: vec![
@@ -538,27 +658,7 @@ doc:
     fn test_export_excel() {
         let rule = get_default_rule();
         let data = Data::marshal(
-            r#"
-# Sheet Name
-## Test Variation 1
-### Test Variation 1-1
-#### Test Variation 1-1-1
-##### Test Variation 1-1-1-1
-###### Test Variation 1-1-1-1-1
-####### Test Variation 1-1-1-1-1-1
-######## Test Variation 1-1-1-1-1-1-1
-* Test Description
-  more lines...
-## Test Variation 2
-### Test Variation 2-1
-#### Test Variation 2-1-1
-##### Test Variation 2-1-1-1
-* Test Description
-  more lines...
-##### Test Variation 2-1-1-2
-* Test Description
-  more lines...
-            "#,
+            &read_to_string("test_case/input/single_block_multi_row.md").unwrap(),
             rule,
         )
         .unwrap();
