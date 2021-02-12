@@ -1,0 +1,5 @@
+doc:
+  blocks:
+    - title: Block Title
+      content:
+      - invalid_key: wrong!!
