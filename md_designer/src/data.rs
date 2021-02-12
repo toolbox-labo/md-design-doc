@@ -7,7 +7,11 @@ use std::{println as info, println as debug};
 use anyhow::{anyhow, Result};
 use pulldown_cmark::{CowStr, Event, Options, Parser, Tag};
 
-use crate::{mapping::Mapping, rule::Rule};
+use crate::{
+    mapping::Mapping,
+    rule::Rule,
+    utils::{custom_prefix_to_key, get_custom_prefix_end_idx},
+};
 
 #[cfg(feature = "excel")]
 use xlsxwriter::*;
@@ -59,6 +63,8 @@ impl Data {
             return Err(anyhow!("input must start with '# ' (sheet name)."));
         }
 
+        let input = rule.filter(input);
+
         // marshal
         // expand parser to be able to handle 7th heading
         let mut options = Options::empty();
@@ -87,13 +93,21 @@ impl Data {
 
         let mut current_block: usize = 0;
         let mut current_column: usize = 0;
+        let mut current_row = 1;
+        // Column idx in the previous loop.
+        // It's used for checking if the new line should be started.
+        let mut previous_idx: usize = 0;
+        // used for checking if the new line should be started.
+        let mut previous_is_list = false;
         let mut sheet = Sheet::default();
         let mut block = Block::default();
         let mut row = Row::new(current_block, &mapping);
+        // new line should be started in current loop?
         let mut start_new_line = false;
+        // is started tag has the sheet name?
         let mut is_sheet_name = false;
-        let mut current_row = 1;
-        let mut previous_idx: usize = 0;
+        // is the first row since the new block started?
+        let mut block_start = false;
 
         parser_filtered.iter().for_each(|event| {
             // if true, next text data is append to current column
@@ -102,11 +116,19 @@ impl Data {
                 Event::Start(tag) => {
                     // check previous tag id
                     // if current tag id is smaller than previous one or equal, start new line
-                    if let Some(current_idx) = mapping.get_idx(current_block, &tag) {
+                    if let Some(current_idx) = mapping.get_idx(current_block, Some(&tag), None) {
                         if current_idx <= &previous_idx {
-                            start_new_line = true;
+                            // if Tag::List starts, check the previous tag and if it's also tag,
+                            // skip starting a new line.
+                            if let Tag::List(_) = tag {
+                                if !previous_is_list {
+                                    start_new_line = true;
+                                }
+                            } else {
+                                start_new_line = true;
+                            }
                         }
-                    } else if mapping.is_last_key(current_block, tag) {
+                    } else if mapping.is_last_key(current_block, Some(tag), None) {
                         start_new_line = true;
                     }
                     if let Tag::Heading(1) = tag {
@@ -116,7 +138,7 @@ impl Data {
                         if start_new_line {
                             // start a new row
                             // insert auto incremented id if rule exists
-                            debug!("start a new line");
+                            debug!("start a new line (Event::Start)");
                             if let Some(id_idx) = mapping.get_auto_increment_idx(current_block) {
                                 row.columns[*id_idx] = format!("{}", current_row);
                             }
@@ -126,7 +148,7 @@ impl Data {
                             previous_idx = 0;
                             current_row += 1;
                         }
-                        if let Some(column_idx) = mapping.get_idx(current_block, &tag) {
+                        if let Some(column_idx) = mapping.get_idx(current_block, Some(&tag), None) {
                             current_column = *column_idx;
                         }
                     }
@@ -134,16 +156,47 @@ impl Data {
                 Event::Text(text) => {
                     if is_sheet_name {
                         sheet.sheet_name = Some(text.to_string());
+                        debug!("sheet name pushed");
+                    } else if custom_prefix_to_key(Some(text)).is_some() {
+                        if let Some(column_idx) = mapping.get_idx(current_block, None, Some(text)) {
+                            if column_idx < &current_column && !block_start {
+                                // start a new row
+                                debug!("start a new line (Event::Text)");
+                                if let Some(id_idx) = mapping.get_auto_increment_idx(current_block)
+                                {
+                                    row.columns[*id_idx] = format!("{}", current_row);
+                                }
+                                block.rows.push(row.clone());
+                                row = Row::new(current_block, &mapping);
+                                start_new_line = false;
+                                previous_idx = 0;
+                                current_row += 1;
+                            }
+                            row.columns[*column_idx] = Data::concat(
+                                &row.columns.get(*column_idx),
+                                &text[get_custom_prefix_end_idx()..],
+                            );
+                            current_column = *column_idx;
+                            debug!("cell pushed => {}, {}", current_row, current_column);
+                        }
+                        block_start = false;
                     } else {
                         row.columns[current_column] =
                             Data::concat(&row.columns.get(current_column), &text);
+                        debug!("cell pushed => {}, {}", current_row, current_column);
                     }
                 }
                 Event::End(tag) => {
                     is_sheet_name = false;
                     // store this tag idx as previous tag idx to be used by next loop
-                    if let Some(idx) = mapping.get_idx(current_block, &tag) {
+                    if let Some(idx) = mapping.get_idx(current_block, Some(&tag), None) {
                         previous_idx = *idx;
+                    }
+                    // store if current tag is list to be used by next loop
+                    if let Tag::List(_) = tag {
+                        previous_is_list = true;
+                    } else {
+                        previous_is_list = false;
                     }
                 }
                 Event::Rule => {
@@ -163,8 +216,8 @@ impl Data {
                     current_row = 1;
                     current_column = 0;
                     previous_idx = 0;
-                    //                    start_new_line = true;
                     row = Row::new(current_block, &mapping);
+                    block_start = true;
                 }
                 _ => {}
             }
@@ -595,6 +648,100 @@ mod tests {
     }
 
     #[test]
+    fn test_marshal_various_list() {
+        let rule =
+            Rule::marshal(&read_to_string("test_case/rule/various_list.yml").unwrap()).unwrap();
+        let rule_clone = rule.clone();
+        let mapping = Mapping::new(&rule).unwrap();
+        let data = Data::marshal(
+            &read_to_string("test_case/input/various_list.md").unwrap(),
+            rule,
+        )
+        .unwrap();
+        let expected = Data {
+            sheets: vec![Sheet {
+                sheet_name: Some(String::from("Sheet Name")),
+                blocks: vec![
+                    Block {
+                        title: String::from("Block Title 1"),
+                        rows: vec![
+                            Row {
+                                columns: vec![
+                                    String::from("1"),
+                                    String::from("Test Variation 1"),
+                                    String::from("Test Variation 1-1"),
+                                    String::from("Test Variation 1-1-1"),
+                                    String::from("Test Variation 1-1-1-1"),
+                                    String::from("Test Variation 1-1-1-1-1"),
+                                    String::from("Test Variation 1-1-1-1-1-1"),
+                                    String::from("Test Variation 1-1-1-1-1-1-1"),
+                                    String::from("Test Description\nmore lines..."),
+                                    String::from("Procedure A-A\nProcedure A-B\nProcedure A-C"),
+                                    String::from("2021/01/01"),
+                                ],
+                            },
+                            Row {
+                                columns: vec![
+                                    String::from("2"),
+                                    String::from("Test Variation 2"),
+                                    String::from("Test Variation 2-1"),
+                                    String::from("Test Variation 2-1-1"),
+                                    String::from("Test Variation 2-1-1-1"),
+                                    String::default(),
+                                    String::default(),
+                                    String::default(),
+                                    String::from("Test Description\nmore lines..."),
+                                    String::from("Procedure B-A\nProcedure B-B"),
+                                    String::from("2021/01/01"),
+                                ],
+                            },
+                            Row {
+                                columns: vec![
+                                    String::from("3"),
+                                    String::default(),
+                                    String::default(),
+                                    String::default(),
+                                    String::from("Test Variation 2-1-1-2"),
+                                    String::default(),
+                                    String::default(),
+                                    String::default(),
+                                    String::from("Test Description\nmore lines..."),
+                                    String::from("Procedure"),
+                                    String::from("2021/01/02"),
+                                ],
+                            },
+                        ],
+                    },
+                    Block {
+                        title: String::from("Block Title 2"),
+                        rows: vec![
+                            Row {
+                                columns: vec![
+                                    String::from("1"),
+                                    String::from("cell 1"),
+                                    String::default(),
+                                    String::from("OK"),
+                                ],
+                            },
+                            Row {
+                                columns: vec![
+                                    String::from("2"),
+                                    String::from("cell 2"),
+                                    String::from("Description\nmore lines..."),
+                                    String::from("NG"),
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            }],
+            mapping,
+            rule: rule_clone,
+        };
+        assert_eq!(expected, data);
+    }
+
+    #[test]
     fn test_marshal_without_list() {
         let rule =
             Rule::marshal(&read_to_string("test_case/rule/without_list.yml").unwrap()).unwrap();
@@ -648,6 +795,73 @@ mod tests {
                         },
                     ],
                 }],
+            }],
+            mapping,
+            rule: rule_clone,
+        };
+        assert_eq!(expected, data);
+    }
+
+    #[test]
+    fn test_marshal_only_list() {
+        let rule = Rule::marshal(&read_to_string("test_case/rule/only_list.yml").unwrap()).unwrap();
+        let rule_clone = rule.clone();
+        let mapping = Mapping::new(&rule).unwrap();
+        let data = Data::marshal(
+            &read_to_string("test_case/input/only_list.md").unwrap(),
+            rule,
+        )
+        .unwrap();
+        let expected = Data {
+            sheets: vec![Sheet {
+                sheet_name: Some(String::from("Sheet Name")),
+                blocks: vec![
+                    Block {
+                        title: String::from("Block Title 1"),
+                        rows: vec![
+                            Row {
+                                columns: vec![
+                                    String::from("1"),
+                                    String::from("cell A 1\nmore lines..."),
+                                    String::from("cell B 1\nmore lines..."),
+                                ],
+                            },
+                            Row {
+                                columns: vec![
+                                    String::from("2"),
+                                    String::from("cell A 2"),
+                                    String::from("cell B 2"),
+                                ],
+                            },
+                            Row {
+                                columns: vec![
+                                    String::from("3"),
+                                    String::from("cell A 3\nmore lines..."),
+                                    String::default(),
+                                ],
+                            },
+                        ],
+                    },
+                    Block {
+                        title: String::from("Block Title 2"),
+                        rows: vec![
+                            Row {
+                                columns: vec![
+                                    String::from("1"),
+                                    String::from("another cell A 1\nmore lines..."),
+                                    String::from("another cell B 1\nmore lines...\nmore lines..."),
+                                ],
+                            },
+                            Row {
+                                columns: vec![
+                                    String::from("2"),
+                                    String::from("another cell A 2"),
+                                    String::default(),
+                                ],
+                            },
+                        ],
+                    },
+                ],
             }],
             mapping,
             rule: rule_clone,

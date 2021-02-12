@@ -22,3 +22,6 @@ doc:
           md: Heading8
       - column: Description
         md: List
+      - column: Procedure
+        md: List
+        customPrefix: "++"

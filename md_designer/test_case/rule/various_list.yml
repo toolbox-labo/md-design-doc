@@ -1,6 +1,6 @@
 doc:
   blocks:
-    - title: Block Title
+    - title: Block Title 1
       content:
       - column: No
         isNum: true
@@ -22,3 +22,21 @@ doc:
           md: Heading8
       - column: Description
         md: List
+      - column: Procedure
+        md: List
+        customPrefix: "+"
+      - column: Date
+        md: List
+        customPrefix: "$"
+    - title: Block Title 2
+      content:
+      - column: No
+        isNum: true
+      - column: Column 1
+        md: Heading2
+      - column: Description
+        md: List
+        customPrefix: "$"
+      - column: Result
+        md: List
+        customPrefix: "+"

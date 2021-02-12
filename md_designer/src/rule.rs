@@ -2,7 +2,10 @@ use std::rc::Rc;
 
 use anyhow::{Context, Result};
 use log::{debug, info};
+use regex::Regex;
 use yaml_rust::{Yaml, YamlLoader};
+
+use crate::utils::get_custom_prefix_as_normal_list;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct MergeInfo {
@@ -100,6 +103,24 @@ impl Rule {
                                             .as_str()
                                             .unwrap(),
                                     ),
+                                    custom_prefix: {
+                                        if let Some(prefix) =
+                                            clm.get(&Yaml::String("customPrefix".to_string()))
+                                        {
+                                            //Some(prefix.as_str().unwrap_or("").to_string())
+                                            let p: Result<&str> = if let Some(p) = prefix.as_str() {
+                                                if p.len() != 1 {
+                                                    return Err(anyhow::anyhow!("Custom prefix's length must be 1. Your input is {}", p.len()));
+                                                }
+                                                Ok(p)
+                                            } else {
+                                                return Err(anyhow::anyhow!("Custom prefix is malformed. It could not be converted into string: {:?}", prefix));
+                                            };
+                                            Some(p?.to_string())
+                                        } else {
+                                            None
+                                        }
+                                    },
                                     group: if let Some(g) = &group {
                                         Some(g.clone())
                                     } else {
@@ -128,6 +149,27 @@ impl Rule {
         info!("OK");
         debug!("parsed rule: \n{:?}", rule);
         Ok(rule)
+    }
+
+    /// This function filters the custom prefix lists into normal lists.
+    /// In addition, it prepends `!!!CUSTOMPREFIX<prefix>` to be able to be checked if they're custom prefix lists or not.
+    /// For example: `+ hogehoge` -> `* !!!CUSTOMPREFIX+ hogehoge`
+    pub fn filter(&self, input: &str) -> String {
+        let separator = Regex::new(r"(?m)^---(.*)").expect("Invalid regex");
+        let mut result = vec![];
+        for (idx, block) in separator.split(input).enumerate() {
+            let mut block_replaced = block.to_owned();
+            if let Some(b) = self.doc.blocks.get(idx) {
+                for column in b.columns.iter() {
+                    if let Some(prefix) = &column.custom_prefix {
+                        let replacement = get_custom_prefix_as_normal_list(&prefix);
+                        block_replaced = block_replaced.replace(prefix, replacement.trim());
+                    }
+                }
+            }
+            result.push(block_replaced);
+        }
+        result.join("---")
     }
 }
 
@@ -172,6 +214,7 @@ pub struct Column {
     pub title: String,
     pub auto_increment: bool,
     pub cmark_tag: String,
+    pub custom_prefix: Option<String>,
     pub group: Option<Rc<Group>>,
     pub is_last: bool,
 }
@@ -182,6 +225,7 @@ impl Default for Column {
             title: String::default(),
             auto_increment: false,
             cmark_tag: String::default(),
+            custom_prefix: None,
             group: None,
             is_last: false,
         }
@@ -195,6 +239,8 @@ pub struct Group {
 
 #[cfg(test)]
 mod tests {
+    use std::fs::read_to_string;
+
     use super::*;
 
     #[test]
@@ -208,49 +254,14 @@ mod tests {
 
     #[test]
     fn test_marshal_invalid_key() {
-        let rule = Rule::marshal(
-            r#"
-doc:
-  blocks:
-    - title: Block Title
-      content:
-      - invalid_key: wrong!!
-            "#,
-        );
+        let rule = Rule::marshal(&read_to_string("test_case/rule/invalid_key.yml").unwrap());
         assert!(rule.is_err());
     }
 
     #[test]
     fn test_marshal() {
-        let rule = Rule::marshal(
-            r#"
-doc:
-  blocks:
-    - title: Block Title
-      content:
-      - column: No
-        isNum: true
-      - group: Variation
-        columns:
-        - column: Variation 1
-          md: Heading2
-        - column: Variation 2
-          md: Heading3
-        - column: Variation 3
-          md: Heading4
-        - column: Variation 4
-          md: Heading5
-        - column: Variation 5
-          md: Heading6
-        - column: Variation 6
-          md: Heading7
-        - column: Variation 7
-          md: Heading8
-      - column: Description
-        md: List
-            "#,
-        )
-        .unwrap();
+        let rule =
+            Rule::marshal(&read_to_string("test_case/rule/default_rule.yml").unwrap()).unwrap();
         let group = Rc::new(Group {
             title: String::from("Variation"),
         });
@@ -322,5 +333,142 @@ doc:
             },
         };
         assert_eq!(expected, rule);
+    }
+
+    #[test]
+    fn test_marshal_various_list() {
+        let rule =
+            Rule::marshal(&read_to_string("test_case/rule/various_list.yml").unwrap()).unwrap();
+        let group = Rc::new(Group {
+            title: String::from("Variation"),
+        });
+        let expected = Rule {
+            doc: Doc {
+                blocks: vec![
+                    Block {
+                        title: String::from("Block Title 1"),
+                        columns: vec![
+                            Column {
+                                title: String::from("No"),
+                                auto_increment: true,
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Variation 1"),
+                                cmark_tag: String::from("Heading2"),
+                                group: Some(group.clone()),
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Variation 2"),
+                                cmark_tag: String::from("Heading3"),
+                                group: Some(group.clone()),
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Variation 3"),
+                                cmark_tag: String::from("Heading4"),
+                                group: Some(group.clone()),
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Variation 4"),
+                                cmark_tag: String::from("Heading5"),
+                                group: Some(group.clone()),
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Variation 5"),
+                                cmark_tag: String::from("Heading6"),
+                                group: Some(group.clone()),
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Variation 6"),
+                                cmark_tag: String::from("Heading7"),
+                                group: Some(group.clone()),
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Variation 7"),
+                                cmark_tag: String::from("Heading8"),
+                                group: Some(group.clone()),
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Description"),
+                                cmark_tag: String::from("List"),
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Procedure"),
+                                cmark_tag: String::from("List"),
+                                custom_prefix: Some(String::from("+")),
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Date"),
+                                cmark_tag: String::from("List"),
+                                custom_prefix: Some(String::from("$")),
+                                is_last: true,
+                                ..Default::default()
+                            },
+                        ],
+                        merge_info: vec![MergeInfo {
+                            title: String::from("Variation"),
+                            from: 1,
+                            to: 7,
+                        }],
+                    },
+                    Block {
+                        title: String::from("Block Title 2"),
+                        columns: vec![
+                            Column {
+                                title: String::from("No"),
+                                auto_increment: true,
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Column 1"),
+                                cmark_tag: String::from("Heading2"),
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Description"),
+                                cmark_tag: String::from("List"),
+                                custom_prefix: Some(String::from("$")),
+                                ..Default::default()
+                            },
+                            Column {
+                                title: String::from("Result"),
+                                cmark_tag: String::from("List"),
+                                custom_prefix: Some(String::from("+")),
+                                is_last: true,
+                                ..Default::default()
+                            },
+                        ],
+                        merge_info: vec![],
+                    },
+                ],
+            },
+        };
+        assert_eq!(expected, rule);
+    }
+
+    #[test]
+    fn test_marshal_various_list_prefix_too_long() {
+        assert!(Rule::marshal(
+            &read_to_string("test_case/rule/various_list_prefix_too_long.yml").unwrap(),
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn test_filter() {
+        let rule =
+            Rule::marshal(&read_to_string("test_case/rule/various_list.yml").unwrap()).unwrap();
+        let result = rule.filter(&read_to_string("test_case/input/various_list.md").unwrap());
+        let expected = read_to_string("test_case/input/various_list_filtered.md").unwrap();
+        assert_eq!(expected, result);
     }
 }

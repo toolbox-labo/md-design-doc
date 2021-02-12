@@ -3,7 +3,11 @@ use std::collections::HashMap;
 use anyhow::Result;
 use pulldown_cmark::Tag;
 
-use crate::{constant::AUTO_INCREMENT_KEY, rule::Rule, utils::cmarktag_stringify};
+use crate::{
+    constant::AUTO_INCREMENT_KEY,
+    rule::Rule,
+    utils::{cmarktag_stringify, custom_prefix_to_key, get_custom_prefix_key},
+};
 
 #[derive(Debug, PartialEq)]
 pub struct Mapping {
@@ -19,11 +23,17 @@ impl Mapping {
             block.columns.iter().enumerate().for_each(|(idx, column)| {
                 if column.auto_increment {
                     mapping.insert(AUTO_INCREMENT_KEY.clone(), idx);
+                } else if let Some(prefix) = &column.custom_prefix {
+                    mapping.insert(get_custom_prefix_key(prefix), idx);
                 } else {
                     mapping.insert(column.cmark_tag.clone(), idx);
                 }
                 if column.is_last {
-                    last_key = Some(column.cmark_tag.clone());
+                    if let Some(prefix) = &column.custom_prefix {
+                        last_key = Some(get_custom_prefix_key(prefix));
+                    } else {
+                        last_key = Some(column.cmark_tag.clone());
+                    }
                 }
             });
             blocks.push(Block {
@@ -37,9 +47,14 @@ impl Mapping {
 }
 
 impl Mapping {
-    pub fn get_idx(&self, block_idx: usize, tag: &Tag<'_>) -> Option<&usize> {
+    pub fn get_idx(
+        &self,
+        block_idx: usize,
+        tag: Option<&Tag<'_>>,
+        text_with_custom_prefix: Option<&str>,
+    ) -> Option<&usize> {
         if let Some(block) = self.blocks.get(block_idx) {
-            return block.get_idx(tag);
+            return block.get_idx(tag, text_with_custom_prefix);
         }
         None
     }
@@ -58,9 +73,14 @@ impl Mapping {
         None
     }
 
-    pub fn is_last_key(&self, block_idx: usize, tag: &Tag<'_>) -> bool {
+    pub fn is_last_key(
+        &self,
+        block_idx: usize,
+        tag: Option<&Tag<'_>>,
+        text_with_custom_prefix: Option<&str>,
+    ) -> bool {
         if let Some(block) = self.blocks.get(block_idx) {
-            return block.is_last_key(tag);
+            return block.is_last_key(tag, text_with_custom_prefix);
         }
         false
     }
@@ -87,9 +107,17 @@ struct Block {
 }
 
 impl Block {
-    pub fn get_idx(&self, tag: &Tag<'_>) -> Option<&usize> {
-        if let Some(tag_str) = cmarktag_stringify(tag) {
-            return self.mapping.get(&tag_str);
+    pub fn get_idx(
+        &self,
+        tag: Option<&Tag<'_>>,
+        text_with_custom_prefix: Option<&str>,
+    ) -> Option<&usize> {
+        if let Some(key) = custom_prefix_to_key(text_with_custom_prefix) {
+            return self.mapping.get(&key);
+        } else if let Some(t) = tag {
+            if let Some(tag_str) = cmarktag_stringify(t) {
+                return self.mapping.get(&tag_str);
+            }
         }
         None
     }
@@ -102,11 +130,24 @@ impl Block {
         Some(self.mapping.len())
     }
 
-    pub fn is_last_key(&self, tag: &Tag<'_>) -> bool {
-        if let Some(tag_str) = cmarktag_stringify(tag) {
-            if let Some(k) = &self.last_key {
-                return k == &tag_str;
+    pub fn is_last_key(
+        &self,
+        tag: Option<&Tag<'_>>,
+        text_with_custom_prefix: Option<&str>,
+    ) -> bool {
+        let k = if let Some(key) = custom_prefix_to_key(text_with_custom_prefix) {
+            key
+        } else if let Some(t) = tag {
+            if let Some(tag_str) = cmarktag_stringify(t) {
+                tag_str
+            } else {
+                return false;
             }
+        } else {
+            return false;
+        };
+        if let Some(last_key) = &self.last_key {
+            return &k == last_key;
         }
         false
     }
@@ -124,9 +165,14 @@ impl Default for Block {
 
 #[cfg(test)]
 mod tests {
+    use std::fs::read_to_string;
+
     use super::*;
 
-    use crate::constant::AUTO_INCREMENT_KEY;
+    use crate::{
+        constant::AUTO_INCREMENT_KEY,
+        utils::{get_custom_prefix_as_normal_list, get_custom_prefix_key},
+    };
 
     #[test]
     fn test_auto_increment_idx_empty() {
@@ -153,35 +199,8 @@ mod tests {
 
     #[test]
     fn test_mapping() {
-        let rule = Rule::marshal(
-            r#"
-doc:
-  blocks:
-    - title: Block Title
-      content:
-      - column: No
-        isNum: true
-      - group: Variation
-        columns:
-        - column: Variation 1
-          md: Heading2
-        - column: Variation 2
-          md: Heading3
-        - column: Variation 3
-          md: Heading4
-        - column: Variation 4
-          md: Heading5
-        - column: Variation 5
-          md: Heading6
-        - column: Variation 6
-          md: Heading7
-        - column: Variation 7
-          md: Heading8
-      - column: Description
-        md: List
-            "#,
-        )
-        .unwrap();
+        let rule =
+            Rule::marshal(&read_to_string("test_case/rule/default_rule.yml").unwrap()).unwrap();
         let mapping = Mapping::new(&rule).unwrap();
         let mut map = HashMap::new();
         map.insert(AUTO_INCREMENT_KEY.clone(), 0);
@@ -201,7 +220,54 @@ doc:
             }],
         };
         assert_eq!(expected, mapping);
-        assert!(!mapping.is_last_key(0, &Tag::Heading(8)));
-        assert!(mapping.is_last_key(0, &Tag::List(None)));
+        assert!(!mapping.is_last_key(0, Some(&Tag::Heading(8)), None));
+        assert!(mapping.is_last_key(0, Some(&Tag::List(None)), None));
+    }
+
+    #[test]
+    fn test_mapping_various_lists() {
+        let rule =
+            Rule::marshal(&read_to_string("test_case/rule/various_list.yml").unwrap()).unwrap();
+        let mapping = Mapping::new(&rule).unwrap();
+        let mut map = HashMap::new();
+        map.insert(AUTO_INCREMENT_KEY.clone(), 0);
+        map.insert("Heading2".to_string(), 1);
+        map.insert("Heading3".to_string(), 2);
+        map.insert("Heading4".to_string(), 3);
+        map.insert("Heading5".to_string(), 4);
+        map.insert("Heading6".to_string(), 5);
+        map.insert("Heading7".to_string(), 6);
+        map.insert("Heading8".to_string(), 7);
+        map.insert("List".to_string(), 8);
+        map.insert(get_custom_prefix_key("+"), 9);
+        map.insert(get_custom_prefix_key("$"), 10);
+        let mut expected = Mapping {
+            blocks: vec![Block {
+                title: String::from("Block Title 1"),
+                mapping: map,
+                last_key: Some(get_custom_prefix_key("$")),
+            }],
+        };
+        let mut map = HashMap::new();
+        map.insert(AUTO_INCREMENT_KEY.clone(), 0);
+        map.insert("Heading2".to_string(), 1);
+        map.insert(get_custom_prefix_key("$"), 2);
+        map.insert(get_custom_prefix_key("+"), 3);
+        expected.blocks.push(Block {
+            title: String::from("Block Title 2"),
+            mapping: map,
+            last_key: Some(get_custom_prefix_key("+")),
+        });
+        assert_eq!(expected, mapping);
+        assert!(!mapping.is_last_key(0, Some(&Tag::Heading(8)), None));
+        assert!(mapping.is_last_key(
+            0,
+            None,
+            Some(
+                &get_custom_prefix_as_normal_list("$")
+                    .strip_prefix("* ")
+                    .unwrap()
+            )
+        ));
     }
 }
