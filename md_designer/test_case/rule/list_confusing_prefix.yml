@@ -1,0 +1,21 @@
+doc:
+  blocks:
+    - title: Block Title 1
+      content:
+      - column: No
+        isNum: true
+      - column: Description
+        md: List
+      - column: Procedure
+        md: List
+        customPrefix: "-"
+    - title: Block Title 2
+      content:
+      - column: No
+        isNum: true
+      - column: Description
+        md: List
+        customPrefix: "D"
+      - column: Result
+        md: List
+        customPrefix: "+"

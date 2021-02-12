@@ -162,14 +162,29 @@ impl Rule {
             if let Some(b) = self.doc.blocks.get(idx) {
                 for column in b.columns.iter() {
                     if let Some(prefix) = &column.custom_prefix {
-                        let replacement = get_custom_prefix_as_normal_list(&prefix);
-                        block_replaced = block_replaced.replace(prefix, replacement.trim());
+                        let mut lines = vec![];
+                        for line in block_replaced.lines() {
+                            let replacement = get_custom_prefix_as_normal_list(&prefix);
+                            if let Some(stripped) = line.trim().strip_prefix(prefix) {
+                                // check if stripped text starts with ' '
+                                // - 'D Description' -> repleace
+                                // - '  Description' -> NOT replace
+                                if stripped.strip_prefix(" ").is_some() {
+                                    lines.push(format!("{}{}", &replacement, stripped));
+                                } else {
+                                    lines.push(line.to_string());
+                                }
+                            } else {
+                                lines.push(line.to_string());
+                            }
+                        }
+                        block_replaced = lines.join("\n");
                     }
                 }
             }
             result.push(block_replaced);
         }
-        result.join("---")
+        format!("{}{}", result.join("\n---"), "\n")
     }
 }
 
@@ -469,6 +484,17 @@ mod tests {
             Rule::marshal(&read_to_string("test_case/rule/various_list.yml").unwrap()).unwrap();
         let result = rule.filter(&read_to_string("test_case/input/various_list.md").unwrap());
         let expected = read_to_string("test_case/input/various_list_filtered.md").unwrap();
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_filter_confusing() {
+        let rule =
+            Rule::marshal(&read_to_string("test_case/rule/list_confusing_prefix.yml").unwrap())
+                .unwrap();
+        let result =
+            rule.filter(&read_to_string("test_case/input/list_confusing_prefix.md").unwrap());
+        let expected = read_to_string("test_case/input/list_confusing_prefix_filtered.md").unwrap();
         assert_eq!(expected, result);
     }
 }
