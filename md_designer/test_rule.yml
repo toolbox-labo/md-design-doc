@@ -26,12 +26,13 @@ doc:
             md: Heading8
       - column: Description
         md: List
-      # TODO: support variable list patterns
-      #   customPrefix: "*"
-      # - column: Procedure
-      #   md: List
-      # - column: Confirmation Items
-      #   md: TaskList
+      - column: Procedure
+        md: List
+        customPrefix: "+"
+      - column: Tester
+        md: List
+        # You can also use any alphabets as custom prefix.
+        customPrefix: "T"
     - title: Block Title 2
       content:
       - column: No
