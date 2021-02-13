@@ -44,7 +44,7 @@ For Windows, install [LLVM Pre-built binaries](https://releases.llvm.org/downloa
 
 ```sh
 $ git clone https://github.com/toolbox-labo/md-design-doc.git
-$ cd md-design-doc/md_designer
+$ cd md-design-doc
 ```
 
 - execute command to convert your `.md` into `.xlsx`
@@ -62,7 +62,6 @@ Fow now, the output file name is same as input file name .
 #### Test
 
 ```sh
-$ cd md_designer
 $ cargo test --features excel
 ```
 
@@ -77,7 +76,6 @@ $ cargo install grcov rust-covfix
 To generate the coverage report,
 
 ```sh
-$ cd md_designer
 $ bash coverage.sh
 ```
 
