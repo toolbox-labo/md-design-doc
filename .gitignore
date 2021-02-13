@@ -1,11 +1,11 @@
 /target
 
-md_designer/target/
+target/
 
-md_designer/test.xlsx
+test.xlsx
 
-md_designer/ccov.zip
+ccov.zip
 
-md_designer/lcov.info
+lcov.info
 
-md_designer/report/
+report/

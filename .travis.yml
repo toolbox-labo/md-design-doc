@@ -15,7 +15,6 @@ jobs:
     dist: focal
     before_script:
       - rustup component add rustfmt --toolchain stable-x86_64-unknown-linux-gnu
-      - cd md_designer
     script:
       - cargo test --features excel
       - cargo clippy --features excel -Z unstable-options -- -D warnings
