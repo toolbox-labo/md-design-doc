@@ -7,8 +7,7 @@ use chrono::Local;
 use clap::{crate_authors, crate_description, crate_name, crate_version, App as ClapApp, Arg};
 use log::{debug, info};
 
-use md_designer::app::App;
-use md_designer::rule::Rule;
+use md_designer::{app::App, rule::Rule, utils::get_output_filename};
 
 fn main() -> Result<()> {
     // setup clap
@@ -25,6 +24,12 @@ fn main() -> Result<()> {
             Arg::with_name("conf_path")
                 .required(true)
                 .help("config file path (.yml)"),
+        )
+        .arg(
+            Arg::with_name("output_filename")
+                .short("o")
+                .takes_value(true)
+                .help("output file name. '.xlsx' is optional."),
         )
         .arg(
             Arg::with_name("verbose")
@@ -75,10 +80,14 @@ fn main() -> Result<()> {
     let rule = Rule::marshal(&cfg_text)?;
 
     let app = App::new(
-        path.file_stem()
-            .with_context(|| "Input file path is malformed")?
-            .to_str()
-            .unwrap(),
+        get_output_filename(
+            clap.value_of("output_filename").unwrap_or(
+                path.file_stem()
+                    .with_context(|| "Input file path is malformed")?
+                    .to_str()
+                    .unwrap(),
+            ),
+        )?,
         &input_text,
         rule,
     )?;
