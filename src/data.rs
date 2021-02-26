@@ -250,12 +250,28 @@ impl Data {
         let (_start_x, _start_y) = (0, 0);
         let (block_start_x, mut block_start_y) = (0, 0);
         let workbook = Workbook::new(&format!("{}.xlsx", file_name));
+        let title_format = workbook.add_format().set_font_size(16.0).set_bold();
+        let head_row_format = workbook
+            .add_format()
+            .set_text_wrap()
+            .set_align(FormatAlignment::CenterAcross)
+            .set_align(FormatAlignment::VerticalCenter)
+            .set_border(FormatBorder::Thin)
+            .set_bg_color(FormatColor::Cyan);
+        let data_row_format = workbook
+            .add_format()
+            .set_text_wrap()
+            .set_border(FormatBorder::Thin);
         for sheet in self.sheets.iter() {
             let mut s = workbook.add_worksheet(sheet.sheet_name.as_deref())?;
-            let wrap_format = workbook.add_format().set_text_wrap();
             for (idx, block) in sheet.blocks.iter().enumerate() {
                 // render the block title
-                s.write_string(block_start_y, block_start_x, &block.title, None)?;
+                s.write_string(
+                    block_start_y,
+                    block_start_x,
+                    &block.title,
+                    Some(&title_format),
+                )?;
                 block_start_y += 1;
                 let mut merged_posisitons: Vec<CellRange> = vec![];
                 if let Some(b) = self.rule.doc.blocks.get(idx) {
@@ -269,7 +285,7 @@ impl Data {
                             block_start_y,
                             merge_info.to,
                             &merge_info.title,
-                            None,
+                            Some(&head_row_format),
                         )?;
                         merged_posisitons.push(CellRange::new(merge_info.from, merge_info.to));
                     }
@@ -286,7 +302,12 @@ impl Data {
                             }
                         }
                         if in_merged_range {
-                            s.write_string(block_start_y + 1, pos_x, &column.title, None)?;
+                            s.write_string(
+                                block_start_y + 1,
+                                pos_x,
+                                &column.title,
+                                Some(&head_row_format),
+                            )?;
                         } else if header_merged {
                             s.merge_range(
                                 block_start_y,
@@ -294,10 +315,15 @@ impl Data {
                                 block_start_y + 1,
                                 pos_x,
                                 &column.title,
-                                None,
+                                Some(&head_row_format),
                             )?;
                         } else {
-                            s.write_string(block_start_y, pos_x, &column.title, None)?;
+                            s.write_string(
+                                block_start_y,
+                                pos_x,
+                                &column.title,
+                                Some(&head_row_format),
+                            )?;
                         }
                     }
                     if header_merged {
@@ -314,7 +340,7 @@ impl Data {
                                 body_start_y + (y_offset as u32),
                                 block_start_x + x_offset as u16,
                                 &column,
-                                Some(&wrap_format),
+                                Some(&data_row_format),
                             )?;
                         }
                         last_y = y_offset;
@@ -325,6 +351,7 @@ impl Data {
                 }
             }
         }
+        workbook.close()?;
         info!("OK");
         Ok(())
     }
