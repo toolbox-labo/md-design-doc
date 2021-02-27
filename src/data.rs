@@ -902,6 +902,46 @@ mod tests {
         assert_eq!(expected, data);
     }
 
+        #[test]
+    fn test_marshal_escape_asterisk() {
+        let rule = get_default_rule();
+        let rule_clone = rule.clone();
+        let mapping = Mapping::new(&rule).unwrap();
+        let data = Data::marshal(
+            &read_to_string("test_case/input/escape_asterisk.md").unwrap(),
+            rule,
+        )
+        .unwrap();
+        let expected = Data {
+            sheets: vec![Sheet {
+                sheet_name: Some(String::from("Sheet Name")),
+                blocks: vec![
+                    Block {
+                        title: String::from("Block Title"),
+                        rows: vec![
+                            Row {
+                                columns: vec![
+                                String::from("1"),
+                                String::from("Test Variation 1"),
+                                String::from("Test Variation 1-1"),
+                                String::from("Test Variation 1-1-1"),
+                                String::default(),
+                                String::default(),
+                                String::default(),
+                                String::default(),
+                                String::from("Test Description_astarisk\nsingle *\ndouble **\nwith space * * *"),
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            }],
+            mapping,
+            rule: rule_clone,
+        };
+        assert_eq!(expected, data);
+    }
+
     #[test]
     fn test_export_excel() {
         let rule = get_default_rule();
