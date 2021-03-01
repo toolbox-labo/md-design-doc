@@ -261,6 +261,8 @@ impl Data {
         let data_row_format = workbook
             .add_format()
             .set_text_wrap()
+            .set_align(FormatAlignment::Left)
+            .set_align(FormatAlignment::VerticalTop)
             .set_border(FormatBorder::Thin);
         for sheet in self.sheets.iter() {
             let mut s = workbook.add_worksheet(sheet.sheet_name.as_deref())?;
