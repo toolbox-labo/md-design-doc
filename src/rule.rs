@@ -121,11 +121,7 @@ impl Rule {
                                             None
                                         }
                                     },
-                                    group: if let Some(g) = &group {
-                                        Some(g.clone())
-                                    } else {
-                                        None
-                                    },
+                                    group: group.as_ref().cloned(),
                                     is_last: i == block.len().saturating_sub(1),
                                 });
                             }
