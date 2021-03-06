@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["zeroclock <zeroclock@icloud.com>"]
 edition = "2018"
 
+[[bin]]
+path = "src/bin/main.rs"
+name = "mddoc"
+
 [features]
 default = []
 excel = ["xlsxwriter"]
