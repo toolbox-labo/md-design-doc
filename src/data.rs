@@ -6,6 +6,7 @@ use std::{println as info, println as debug};
 
 use anyhow::{anyhow, Result};
 use pulldown_cmark::{CowStr, Event, Options, Parser, Tag};
+use regex::Regex;
 
 use crate::{
     mapping::Mapping,
@@ -50,6 +51,10 @@ impl Default for Data {
 
 impl Data {
     pub fn marshal(input: &str, rule: Rule) -> Result<Self> {
+        // escape md notation without beginnig of line
+        info!("escape input");
+        let input = Data::escape_notation(input);
+
         info!("parsing input with parsed rules...");
         // trim first empty lines
         let input = input.trim_start();
@@ -155,7 +160,7 @@ impl Data {
                 }
                 Event::Text(text) => {
                     if is_sheet_name {
-                        sheet.sheet_name = Some(text.to_string());
+                        sheet.sheet_name = Some(Data::reverse_escape_notation(&text.to_string()));
                         debug!("sheet name pushed");
                     } else if custom_prefix_to_key(Some(text)).is_some() {
                         if let Some(column_idx) = mapping.get_idx(current_block, None, Some(text)) {
@@ -174,15 +179,19 @@ impl Data {
                             }
                             row.columns[*column_idx] = Data::concat(
                                 &row.columns.get(*column_idx),
-                                &text[get_custom_prefix_end_idx()..],
+                                &Data::reverse_escape_notation(
+                                    &text[get_custom_prefix_end_idx()..],
+                                ),
                             );
                             current_column = *column_idx;
                             debug!("cell pushed => {}, {}", current_row, current_column);
                         }
                         block_start = false;
                     } else {
-                        row.columns[current_column] =
-                            Data::concat(&row.columns.get(current_column), &text);
+                        row.columns[current_column] = Data::concat(
+                            &row.columns.get(current_column),
+                            &Data::reverse_escape_notation(&text),
+                        );
                         debug!("cell pushed => {}, {}", current_row, current_column);
                     }
                 }
@@ -365,6 +374,30 @@ impl Data {
             }
         }
         input.to_string()
+    }
+
+    fn escape_notation(input: &str) -> String {
+        let mut result: String = "".to_string();
+        let reg = Regex::new(r"\*").unwrap();
+        // split \n and convert by one line
+        let splits: Vec<&str> = input.split('\n').collect();
+        for split in splits {
+            // skip first of line
+            let mut split = split.to_string();
+            let mut head: String = "".to_string();
+            if !split.is_empty() {
+                head = split.remove(0).to_string();
+            }
+            let replaced = reg.replace_all(&split, "--asterisk--");
+            result.push_str(&format!("\n{}{}", head, replaced));
+        }
+        result
+    }
+
+    fn reverse_escape_notation(input: &str) -> String {
+        let reg = Regex::new("--asterisk--").unwrap();
+        let result = reg.replace_all(input, "*").to_string();
+        result
     }
 }
 
@@ -891,6 +924,44 @@ mod tests {
                         ],
                     },
                 ],
+            }],
+            mapping,
+            rule: rule_clone,
+        };
+        assert_eq!(expected, data);
+    }
+
+    #[test]
+    fn test_marshal_escape_asterisk() {
+        let rule = get_default_rule();
+        let rule_clone = rule.clone();
+        let mapping = Mapping::new(&rule).unwrap();
+        let data = Data::marshal(
+            &read_to_string("test_case/input/escape_asterisk.md").unwrap(),
+            rule,
+        )
+        .unwrap();
+        let expected = Data {
+            sheets: vec![Sheet {
+                sheet_name: Some(String::from("Sheet Name")),
+                blocks: vec![Block {
+                    title: String::from("Block Title"),
+                    rows: vec![Row {
+                        columns: vec![
+                            String::from("1"),
+                            String::from("Test Variation 1"),
+                            String::from("Test Variation 1-1"),
+                            String::from("Test Variation 1-1-1"),
+                            String::default(),
+                            String::default(),
+                            String::default(),
+                            String::default(),
+                            String::from(
+                                "Test Description_astarisk\nsingle *\ndouble **\nwith space * * *",
+                            ),
+                        ],
+                    }],
+                }],
             }],
             mapping,
             rule: rule_clone,
