@@ -31,8 +31,8 @@ jobs:
       - rustup target add x86_64-unknown-linux-gnu x86_64-pc-windows-gnu
     script:
       - export PATH="$(pwd)/osxcross/target/bin:$PATH"
-      - cargo build --target x86_64-unknown-linux-gnu --release
-      - cargo build --target x86_64-pc-windows-gnu --release
+      - cargo build --target x86_64-unknown-linux-gnu --release --features excel
+      - cargo build --target x86_64-pc-windows-gnu --release --features excel
       - zip -j mddoc_x86_64-unknown-linux-gnu.zip "./target/x86_64-unknown-linux-gnu/release/mddoc"
       - zip -j mddoc_x86_64-pc-windows-gnu.zip "./target/x86_64-pc-windows-gnu/release/mddoc.exe"
     deploy:
