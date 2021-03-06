@@ -24,13 +24,10 @@ jobs:
     os: linux
     dist: focal
     if: tag IS present
-    services:
-      - docker
     before_script:
       - sudo apt-get install -y mingw-w64 clang gcc g++ zlib1g-dev libmpc-dev libmpfr-dev libgmp-dev zip unzip
       - rustup target add x86_64-unknown-linux-gnu x86_64-pc-windows-gnu
     script:
-      - export PATH="$(pwd)/osxcross/target/bin:$PATH"
       - cargo build --target x86_64-unknown-linux-gnu --release --features excel
       - cargo build --target x86_64-pc-windows-gnu --release --features excel
       - zip -j mddoc_x86_64-unknown-linux-gnu.zip "./target/x86_64-unknown-linux-gnu/release/mddoc"
@@ -45,6 +42,23 @@ jobs:
         file:
           - "mddoc_x86_64-unknown-linux-gnu.zip"
           - "mddoc_x86_64-pc-windows-gnu.zip"
+  - stage: deploy (mac)
+    os: osx
+    if: tag IS present
+    before_script:
+      - brew install zip
+    script:
+      - cargo build --target x86_64-apple-darwin --release --features excel
+      - zip -j mddoc_x86_64-apple-darwin.zip "./target/x86_64-apple-darwin/release/mddoc"
+    deploy:
+      - provider: releases
+        skip_cleanup: true
+        on:
+          tags: true
+        api_key:
+          secure: "5dcGGWEzZ/jj41rDkBLlNa5FMZh56NNsDcbe+OZ7fEWUcTWKQSYRQaQGYojgQa4rZbfiWWvhMP5sWdI2/Cy765Qw+6GOdvjALhxdkg6ybNQnYlb4NFX/XKzf26+ALfNOvdGtno4dey+yHrfV6jlODSBWz53EIBJja/BrFHLt6lgZhhsBVt97zxDppSospgBwCEmKH214/7At5G+pEi7mr7OjrDOkmYm9gobK2MdCzFbpirDcIWSYLUjnwjHJJ3833vBGfjrCIsFVE7W4ZJqzR7qMJZVxqwoQSKGiAqh2bkj5pPCekOEa63VcONgYuyJgvgza0dNY8fvPv9plpEC6x3BSxJWPBNp+BJCKlAqnNcQ7RlsY5IxEDwEHC0e33Yaxu7LLaDmzhDfHMaBT8i60s99JWcB/6aEQSWDyr9SPD1wiX36bZDFfd0UVtWb7xOpdCN8U6BAlGwhD7kNbDdvqJjBt9SQ3L2xdxkut1mNRBJQ0dJN2T3odAxyl7QuE8/xHDGEjFHlG9SylIvh0M9Wezv+DqUDXH1lH6qjwxG7KipAG7Kkqs4j37i6w9c+UXQH7uI/DYF27tCR9iLEf5oTguY0DIxN9+lRCSw/YUH1wW5/3v/MOvxtVt3k/7JYCsPZOa3g2VJ4rblMSVl+pJsQQCO+sm8yGvDUov1K/c5PItec="
+        file:
+          - "mddoc_x86_64-apple-darwin.zip"
 env:
   global:
     secure: zOr7Re70susrc/q7/nVwcorOexfBFBuJx/dztkt0VwXfAxTic3SlK38wMBJ9vOH+OOMuqYp9mjhKjJaBMsTw2wja93dh6KzaEiUsb9RQjBSdZlutWfrlDhkZSLr5dZjRzB2rnaIYKdaKCDEz4TVtoGAeTjuNSiLxxE0l6RFawl+ekhKqCYmbyyUzZdCQPPS0lthcJxhRnLZmeY1ojM5dbdgBubHhQ9ksCPVn+1GlwO8fkW8RlNgeWbtim1EsIMmsozRDGYmyPtWKYjJVBey49iindZnmSzaKJ0ilbQX2HwjYshaD+kauOXgQz/wZd0FwRdiqtvDpzwSkW+SGVYcs59dKJoDXVpiqypTWJ0k+jRGEdeR0Kq40sKmPsjk5yNMQr/Sy5fLDYHWnUAW9VUzZdFIc8lKZwXU/ez3QbCErfYW4RVaKHyrxjkQ9rRbSjTCRXHDILs/nF9E58NP/AV6noPkygCyzHhArvU1/q+DB/rg4q1H6XqTsX5LFjJzbh6hJnq4PHmEmhIVC5XIGe9rnLyD7VPdkwlsUXWYnQSnnSfc7m0vyZ8sqonR/r/d09kIHyUzZWOEhnfssB1IEdlKsTvL60xdDYmUX0E1/v98cuu4TwgHYszOSMZwGuTyCfkg+FCMTROmEQG/QZXHZ/uDTgCoEGLWrV09WiPWl0xEO9ms=
