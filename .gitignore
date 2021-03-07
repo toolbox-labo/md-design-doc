@@ -9,3 +9,7 @@ ccov.zip
 lcov.info
 
 report/
+
+osxcross/
+
+Cargo.lock
