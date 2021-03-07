@@ -11,3 +11,5 @@ lcov.info
 report/
 
 osxcross/
+
+Cargo.lock
