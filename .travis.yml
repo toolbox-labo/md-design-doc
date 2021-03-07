@@ -59,6 +59,16 @@ jobs:
           secure: "5dcGGWEzZ/jj41rDkBLlNa5FMZh56NNsDcbe+OZ7fEWUcTWKQSYRQaQGYojgQa4rZbfiWWvhMP5sWdI2/Cy765Qw+6GOdvjALhxdkg6ybNQnYlb4NFX/XKzf26+ALfNOvdGtno4dey+yHrfV6jlODSBWz53EIBJja/BrFHLt6lgZhhsBVt97zxDppSospgBwCEmKH214/7At5G+pEi7mr7OjrDOkmYm9gobK2MdCzFbpirDcIWSYLUjnwjHJJ3833vBGfjrCIsFVE7W4ZJqzR7qMJZVxqwoQSKGiAqh2bkj5pPCekOEa63VcONgYuyJgvgza0dNY8fvPv9plpEC6x3BSxJWPBNp+BJCKlAqnNcQ7RlsY5IxEDwEHC0e33Yaxu7LLaDmzhDfHMaBT8i60s99JWcB/6aEQSWDyr9SPD1wiX36bZDFfd0UVtWb7xOpdCN8U6BAlGwhD7kNbDdvqJjBt9SQ3L2xdxkut1mNRBJQ0dJN2T3odAxyl7QuE8/xHDGEjFHlG9SylIvh0M9Wezv+DqUDXH1lH6qjwxG7KipAG7Kkqs4j37i6w9c+UXQH7uI/DYF27tCR9iLEf5oTguY0DIxN9+lRCSw/YUH1wW5/3v/MOvxtVt3k/7JYCsPZOa3g2VJ4rblMSVl+pJsQQCO+sm8yGvDUov1K/c5PItec="
         file:
           - "mddoc_x86_64-apple-darwin.zip"
+  - stage: deploy (crates.io)
+    os: linux
+    dist: focal
+    if: tag IS present
+    deploy:
+      - provider: cargo
+        on:
+          tags: true
+        token:
+          secure: "LFU5l2ad1M9nPhdF6N1SeK5Hzz5iud0A0i/yhxkDBaSO/kFt1b9/GuBKtwJCIUMUn5Pk+1CNyVfjhq7GUqcWIqOobjZ5/TYoFwPRDF0O/dFk8jNiXXG6i62INT0L9ueqNsgpgB7d4T4x/l0THb1s9tllXjubx5rpEgVDjHfZ8BhsCyahHdI9fHMNxXHMyg8jqfAxRaW4tC2nzNGSfRInnRVLtbMnccKColpNDY8oyA1u7NlyrP1ZxoB5cDl/j02tdPFFV7pWMHRkqbd7wF/EDViYBIRhuoyzQBtSibA6G/fpSjVuOMKZBilrD9HWNdqIgCK5gPxerVs81kvaes+DoMbMXCdJEnWi7n0i7EQMmzozDCobg/MJ+m/q0DSAWSbDaHzfu8jp+KY2PenWSAjUqsdTSW0eVSZDzM0U3VOb/OP+Wh98egym3Ewmhh5n4GTWFZ30gKzrhVSWipjpQMx3xNFOhaw/MJwbeasO82aD2INHznXnFmYT4clk/TIu14JeQdfrXFrlX9zmp6AqOOSTUD/q1BaDa3XgZ/fz2ZCALiI7ndNF4Agl0w3P+NAISRuEe9OVt9L39i4Z/mJe2KjshjeEbihyarwFHY/+mirs0+BKWOB8BC4ykV7vFpy7lkzXgAEcRf1Oi9vFKuWJgXIweHNiYDq9qpR09eaMvFcCjMQ="
 env:
   global:
     secure: zOr7Re70susrc/q7/nVwcorOexfBFBuJx/dztkt0VwXfAxTic3SlK38wMBJ9vOH+OOMuqYp9mjhKjJaBMsTw2wja93dh6KzaEiUsb9RQjBSdZlutWfrlDhkZSLr5dZjRzB2rnaIYKdaKCDEz4TVtoGAeTjuNSiLxxE0l6RFawl+ekhKqCYmbyyUzZdCQPPS0lthcJxhRnLZmeY1ojM5dbdgBubHhQ9ksCPVn+1GlwO8fkW8RlNgeWbtim1EsIMmsozRDGYmyPtWKYjJVBey49iindZnmSzaKJ0ilbQX2HwjYshaD+kauOXgQz/wZd0FwRdiqtvDpzwSkW+SGVYcs59dKJoDXVpiqypTWJ0k+jRGEdeR0Kq40sKmPsjk5yNMQr/Sy5fLDYHWnUAW9VUzZdFIc8lKZwXU/ez3QbCErfYW4RVaKHyrxjkQ9rRbSjTCRXHDILs/nF9E58NP/AV6noPkygCyzHhArvU1/q+DB/rg4q1H6XqTsX5LFjJzbh6hJnq4PHmEmhIVC5XIGe9rnLyD7VPdkwlsUXWYnQSnnSfc7m0vyZ8sqonR/r/d09kIHyUzZWOEhnfssB1IEdlKsTvL60xdDYmUX0E1/v98cuu4TwgHYszOSMZwGuTyCfkg+FCMTROmEQG/QZXHZ/uDTgCoEGLWrV09WiPWl0xEO9ms=
