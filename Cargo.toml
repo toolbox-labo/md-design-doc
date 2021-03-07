@@ -1,8 +1,13 @@
 [package]
 name = "md-designer"
 version = "0.1.0"
-authors = ["zeroclock <zeroclock@icloud.com>"]
+authors = ["Y.Matsuda <zeroclock@icloud.com>"]
 edition = "2018"
+license = "MIT"
+description = "A CLI tool for creating design docs in Markdown"
+repository = "https://github.com/toolbox-labo/md-design-doc"
+homepage = "https://github.com/toolbox-labo/md-design-doc"
+readme = "README.md"
 
 [[bin]]
 path = "src/bin/main.rs"
