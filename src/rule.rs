@@ -151,36 +151,71 @@ impl Rule {
     /// In addition, it prepends `!!!CUSTOMPREFIX<prefix>` to be able to be checked if they're custom prefix lists or not.
     /// For example: `+ hogehoge` -> `* !!!CUSTOMPREFIX+ hogehoge`
     pub fn filter(&self, input: &str) -> String {
+        let sheet_separator = Regex::new(r"(?m)^# (.*)").expect("Invalid regex");
         let separator = Regex::new(r"(?m)^---(.*)").expect("Invalid regex");
+        let headers: Vec<&str> = sheet_separator
+            .captures_iter(input)
+            .map(|c| c.get(0).unwrap().as_str())
+            .collect();
         let mut result = vec![];
-        for (idx, block) in separator.split(input).enumerate() {
-            let mut block_replaced = block.to_owned();
-            if let Some(b) = self.doc.blocks.get(idx) {
-                for column in b.columns.iter() {
-                    if let Some(prefix) = &column.custom_prefix {
-                        let mut lines = vec![];
-                        for line in block_replaced.lines() {
-                            let replacement = get_custom_prefix_as_normal_list(&prefix);
-                            if let Some(stripped) = line.trim().strip_prefix(prefix) {
-                                // check if stripped text starts with ' '
-                                // - 'D Description' -> repleace
-                                // - '  Description' -> NOT replace
-                                if stripped.strip_prefix(" ").is_some() {
-                                    lines.push(format!("{}{}", &replacement, stripped));
+        for sheet in sheet_separator.split(input) {
+            let mut sheet_result = vec![];
+            for (idx, block) in separator.split(sheet).enumerate() {
+                let mut block_replaced = block.to_owned();
+                if let Some(b) = self.doc.blocks.get(idx) {
+                    for column in b.columns.iter() {
+                        if let Some(prefix) = &column.custom_prefix {
+                            let mut lines = vec![];
+                            for line in block_replaced.lines() {
+                                let replacement = get_custom_prefix_as_normal_list(&prefix);
+                                if let Some(stripped) = line.trim().strip_prefix(prefix) {
+                                    // check if stripped text starts with ' '
+                                    // - 'D Description' -> repleace
+                                    // - '  Description' -> NOT replace
+                                    if stripped.strip_prefix(" ").is_some() {
+                                        lines.push(format!("{}{}", &replacement, stripped));
+                                    } else {
+                                        lines.push(line.to_string());
+                                    }
                                 } else {
                                     lines.push(line.to_string());
                                 }
-                            } else {
-                                lines.push(line.to_string());
                             }
+                            block_replaced = lines.join("\n");
                         }
-                        block_replaced = lines.join("\n");
                     }
                 }
+                sheet_result.push(block_replaced);
             }
-            result.push(block_replaced);
+            //result.push(format!("{}{}", sheet_result.join("\n---"), "\n"));
+            result.push(sheet_result.join("\n---").to_string());
         }
-        format!("{}{}", result.join("\n---"), "\n")
+        // join result with the stored headers
+        let mut r = String::default();
+        let mut i = 0;
+        loop {
+            if i >= result.len() {
+                break;
+            }
+            if i + 1 < result.len() {
+                r = format!(
+                    "{}{}{}",
+                    r,
+                    if i == 0 { "" } else { "\n" },
+                    result[i..=(i + 1)].join(&headers[i as usize])
+                );
+            } else {
+                r = format!(
+                    "{}{}{}{}",
+                    r,
+                    if i == 0 { "" } else { "\n" },
+                    headers.last().unwrap_or(&""),
+                    result[i]
+                );
+            }
+            i += 2;
+        }
+        r
     }
 }
 
@@ -491,6 +526,17 @@ mod tests {
         let result =
             rule.filter(&read_to_string("test_case/input/list_confusing_prefix.md").unwrap());
         let expected = read_to_string("test_case/input/list_confusing_prefix_filtered.md").unwrap();
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_filter_multiple_sheet() {
+        let rule =
+            Rule::marshal(&read_to_string("test_case/rule/various_list.yml").unwrap()).unwrap();
+        let result =
+            rule.filter(&read_to_string("test_case/input/various_list_multiple_sheet.md").unwrap());
+        let expected =
+            read_to_string("test_case/input/various_list_multiple_sheet_filtered.md").unwrap();
         assert_eq!(expected, result);
     }
 }
