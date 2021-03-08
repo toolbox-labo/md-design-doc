@@ -856,6 +856,178 @@ mod tests {
     }
 
     #[test]
+    fn test_marshal_various_list_multiple_sheet() {
+        let rule =
+            Rule::marshal(&read_to_string("test_case/rule/various_list.yml").unwrap()).unwrap();
+        let rule_clone = rule.clone();
+        let mapping = Mapping::new(&rule).unwrap();
+        let data = Data::marshal(
+            &read_to_string("test_case/input/various_list_multiple_sheet.md").unwrap(),
+            rule,
+        )
+        .unwrap();
+        let expected = Data {
+            sheets: vec![
+                Sheet {
+                    sheet_name: Some(String::from("Sheet Name 1")),
+                    blocks: vec![
+                        Block {
+                            title: String::from("Block Title 1"),
+                            rows: vec![
+                                Row {
+                                    columns: vec![
+                                        String::from("1"),
+                                        String::from("Test Variation 1"),
+                                        String::from("Test Variation 1-1"),
+                                        String::from("Test Variation 1-1-1"),
+                                        String::from("Test Variation 1-1-1-1"),
+                                        String::from("Test Variation 1-1-1-1-1"),
+                                        String::from("Test Variation 1-1-1-1-1-1"),
+                                        String::from("Test Variation 1-1-1-1-1-1-1"),
+                                        String::from("Test Description\nmore lines..."),
+                                        String::from("Procedure A-A\nProcedure A-B\nProcedure A-C"),
+                                        String::from("2021/01/01"),
+                                    ],
+                                },
+                                Row {
+                                    columns: vec![
+                                        String::from("2"),
+                                        String::from("Test Variation 2"),
+                                        String::from("Test Variation 2-1"),
+                                        String::from("Test Variation 2-1-1"),
+                                        String::from("Test Variation 2-1-1-1"),
+                                        String::default(),
+                                        String::default(),
+                                        String::default(),
+                                        String::from("Test Description\nmore lines..."),
+                                        String::from("Procedure B-A\nProcedure B-B"),
+                                        String::from("2021/01/01"),
+                                    ],
+                                },
+                                Row {
+                                    columns: vec![
+                                        String::from("3"),
+                                        String::default(),
+                                        String::default(),
+                                        String::default(),
+                                        String::from("Test Variation 2-1-1-2"),
+                                        String::default(),
+                                        String::default(),
+                                        String::default(),
+                                        String::from("Test Description\nmore lines..."),
+                                        String::from("Procedure"),
+                                        String::from("2021/01/02"),
+                                    ],
+                                },
+                            ],
+                        },
+                        Block {
+                            title: String::from("Block Title 2"),
+                            rows: vec![
+                                Row {
+                                    columns: vec![
+                                        String::from("1"),
+                                        String::from("cell 1"),
+                                        String::default(),
+                                        String::from("OK"),
+                                    ],
+                                },
+                                Row {
+                                    columns: vec![
+                                        String::from("2"),
+                                        String::from("cell 2"),
+                                        String::from("Description\nmore lines..."),
+                                        String::from("NG"),
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                },
+                Sheet {
+                    sheet_name: Some(String::from("Sheet Name 2")),
+                    blocks: vec![
+                        Block {
+                            title: String::from("Block Title 1"),
+                            rows: vec![
+                                Row {
+                                    columns: vec![
+                                        String::from("1"),
+                                        String::from("Test Variation 1"),
+                                        String::from("Test Variation 1-1"),
+                                        String::from("Test Variation 1-1-1"),
+                                        String::from("Test Variation 1-1-1-1"),
+                                        String::from("Test Variation 1-1-1-1-1"),
+                                        String::from("Test Variation 1-1-1-1-1-1"),
+                                        String::from("Test Variation 1-1-1-1-1-1-1"),
+                                        String::from("Test Description\nmore lines..."),
+                                        String::from("Procedure A-A\nProcedure A-B\nProcedure A-C"),
+                                        String::from("2021/01/01"),
+                                    ],
+                                },
+                                Row {
+                                    columns: vec![
+                                        String::from("2"),
+                                        String::from("Test Variation 2"),
+                                        String::from("Test Variation 2-1"),
+                                        String::from("Test Variation 2-1-1"),
+                                        String::from("Test Variation 2-1-1-1"),
+                                        String::default(),
+                                        String::default(),
+                                        String::default(),
+                                        String::from("Test Description\nmore lines..."),
+                                        String::from("Procedure B-A\nProcedure B-B"),
+                                        String::from("2021/01/01"),
+                                    ],
+                                },
+                                Row {
+                                    columns: vec![
+                                        String::from("3"),
+                                        String::default(),
+                                        String::default(),
+                                        String::default(),
+                                        String::from("Test Variation 2-1-1-2"),
+                                        String::default(),
+                                        String::default(),
+                                        String::default(),
+                                        String::from("Test Description\nmore lines..."),
+                                        String::from("Procedure"),
+                                        String::from("2021/01/02"),
+                                    ],
+                                },
+                            ],
+                        },
+                        Block {
+                            title: String::from("Block Title 2"),
+                            rows: vec![
+                                Row {
+                                    columns: vec![
+                                        String::from("1"),
+                                        String::from("cell 1"),
+                                        String::default(),
+                                        String::from("OK"),
+                                    ],
+                                },
+                                Row {
+                                    columns: vec![
+                                        String::from("2"),
+                                        String::from("cell 2"),
+                                        String::from("Description\nmore lines..."),
+                                        String::from("NG"),
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+            mapping,
+            rule: rule_clone,
+        };
+        assert_eq!(expected, data);
+    }
+
+    #[test]
     fn test_marshal_without_list() {
         let rule =
             Rule::marshal(&read_to_string("test_case/rule/without_list.yml").unwrap()).unwrap();
